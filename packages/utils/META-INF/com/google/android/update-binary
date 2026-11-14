@@ -87,7 +87,7 @@ unzip -o "$ZIPFILE" >&2
 
 [ ! -f module.prop ] && abort "- Module.prop Not Found"
 
-for AY in arm64 arm x86 x86_64; do
+for AY in arm64; do
 	if $MODPATH/bin/$AY/toybox 2>/dev/null | grep -q mount; then
 		unset TOYBOX
 		export TOYBOX=$MODPATH/bin/$AY/toybox
@@ -99,7 +99,7 @@ done
 if [ "$TOYBOX" ] && [ -f $TOYBOX ]; then
 print "- Using Toybox <$TOYBOX>"
 cdir $MODPATH/xbin
-for H in $($MODPATH/bin/arm64/toybox); do
+for H in $($TOYBOX); do
 	$TOYBOX ln -sf $TOYBOX $MODPATH/xbin/$H
 done
 PATH=$MODPATH/xbin:/bin:/system/bin:/system/xbin:/sbin

@@ -47,9 +47,10 @@ when a build fails**, they contain the real error.
 | `files/` | Where `bin.zip` is downloaded to during restore. Gitignored. |
 | `vps-build.sh` | **Unattended full build for a self-hosted VPS** (no time limit). Loops every `ARCH × SDK` from `.env`; per target: download package source from SourceForge → `packages/make make` (build addon) → scp addon to SF → download gapps → build every litegapps variant (via `build.sh make`) → scp zips to SF → **delete all sources/output before the next target** so a low-memory VPS holds only one target at a time. Failures are logged to `vps-build-logs/vps-build-failed.log` and the run continues. Its own consolidated log goes to `vps-build-logs/`, separate from `build.sh`'s `log/` (which appends across runs). Config via `.env` (gitignored: `SF_USER`, `ARCH_LIST`, `SDK_LIST`). Run detached (Docker via `Dockerfile`/`docker-compose.yml`, or `tmux`/`nohup`) so it survives SSH logout. Uploads reuse the proven scp-to-`web.sourceforge.net:/home/frs/project/litegapps/...` pattern. |
 | `Dockerfile` / `docker-compose.yml` / `.dockerignore` | Containerized runner for `vps-build.sh` — clean env with all deps (curl, zip, tar, xz, brotli, unzip, java), SSH keys mounted read-only from the host, runs detached (`docker run -d` / `docker compose up -d`). |
+| `sf-prune.sh` / `sf-common.sh` | Release retention on the FRS: `bash sf-prune.sh <arch> <sdk> [--dry-run]` keeps the newest `SF_KEEP_RELEASES` (15) dated folders per variant. Called by `vps-build.sh` after a successful upload; `sf-common.sh` holds the shared `.env` loading and ssh options. |
 | `sf-build.sh` | Legacy maintainer auto-build script run on the **SourceForge build VPS** (`$HOMEE=/home/frs/project/litegapps`). Interactive menu (arch/sdk prompt → Make Addon / Make LiteGapps / extract / release / **Build All**). Note: the SourceForge VPS enforces a **4-hour job time limit**, so builds must fit within that window — favor `litegapps.tar=single`/`multi` reuse and reasonable compression levels to stay under it. Meant for the release server, not casual local builds. |
-| `sf-build.sh` menu 6 "Build All" | Resumable batch build: loops arm64 (SDK 37→24), then arm/x86/x86_64 (same SDK range), running `UNZIP_FILE_SERVER`→`UNZIP_GAPPS`→`MAKE_ADDON`→`MAKE_LITEGAPPS` per combo. Builds `$BUILD_ALL_BATCH` (4) combos then stops (fits the 4-hour limit), recording finished ones in `sf-build-progress.log` (gitignored, lives next to the script). Re-running menu 6 resumes from there; menu 7 shows progress. To force-rebuild one combo regardless of progress, use the normal menu 1+2 with that arch/sdk — Build All's tracking doesn't touch it. Variant selection per arch (matching `MAKE_LITEGAPPS()`): arm64 SDK ≤28 → core+lite, SDK ≥29 → pixel+lite+superlite; arm/x86/x86_64 → core (+superlite if SDK ≥29). |
-| `bin/` | Per-arch binaries (`arm arm64 x86 x86_64`: zip, tar, xz, brotli, toybox) + `zipsigner.jar`. Downloaded by restore, gitignored. |
+| `sf-build.sh` menu 6 "Build All" | Resumable batch build: loops arm64 (SDK 37→24), running `UNZIP_FILE_SERVER`→`UNZIP_GAPPS`→`MAKE_ADDON`→`MAKE_LITEGAPPS` per combo. Builds `$BUILD_ALL_BATCH` (4) combos then stops (fits the 4-hour limit), recording finished ones in `sf-build-progress.log` (gitignored, lives next to the script). Re-running menu 6 resumes from there; menu 7 shows progress. To force-rebuild one combo regardless of progress, use the normal menu 1+2 with that arch/sdk — Build All's tracking doesn't touch it. Variant selection per arch (matching `MAKE_LITEGAPPS()`): arm64 SDK ≤28 → core+lite, SDK ≥29 → pixel+lite+superlite. |
+| `bin/` | Per-arch host binaries (`arm64`: zip, tar, xz, brotli, toybox) + `zipsigner.jar`. Downloaded by restore, gitignored. |
 
 ## config (top-level) — key fields
 
@@ -102,9 +103,9 @@ per variant (see the gapps-source overrides above).
 
 ## Common tasks
 
-**Supported range**: Android 7.0 (SDK 24) and up (`MIN_SDK`); arm (32-bit)
-stops at SDK 36 (`ARM_LAST_SDK`), x86 (32-bit) at SDK 30 (`X86_LAST_SDK`).
-`unsupported_reason()` says which rule skipped a target.
+**Supported range**: Android 7.0 (SDK 24) and up (`MIN_SDK`), on arm64 only —
+arm, x86 and x86_64 are no longer built.
+`unsupported_reason()` names the rule that skipped a target.
 
 **Add a new Android/SDK version** (e.g. A17 = SDK 37): add the mapping in
 `get_android_version()` in `build.sh` (the `case` around line ~310), add the SDK

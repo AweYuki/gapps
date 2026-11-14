@@ -47,7 +47,7 @@ fi
 SF_USER="${SF_USER:-}"                                  # SourceForge username (required)
 SF_HOST="${SF_HOST:-web.sourceforge.net}"               # scp host
 SF_FRS="${SF_FRS:-/home/frs/project/litegapps}"         # remote release root
-ARCH_LIST="${ARCH_LIST:-arm arm64 x86 x86_64}"          # architectures to build
+ARCH_LIST="${ARCH_LIST:-arm64}"                         # architectures to build
 SDK_LIST="${SDK_LIST:-29 30 31 32 33 34 35 36}"         # SDK/API levels to build
 DL_BASE="${DL_BASE:-https://sourceforge.net/projects/litegapps/files/files-server}"
 SF_MIRROR="${SF_MIRROR:-}"   # optional SourceForge mirror name, e.g. excellmedia (see .env.example)
@@ -116,9 +116,6 @@ variants_for(){
 		else
 			echo "pixel micro nano basic user go core lite"
 		fi
-		;;
-	arm | x86 | x86_64)
-		echo "core lite"
 		;;
 	esac
 }
@@ -292,7 +289,7 @@ build_variant(){
 	if scp_tree "$rin" "$SF_FRS/litegapps/$ARCH/$SDK/$variant" && [ -z "$NO_UPLOAD" ]; then
 		# Keep the newest SF_KEEP_RELEASES (15) releases per variant.
 		SF_USER="$SF_USER" SF_HOST="$SF_HOST" SF_FRS="$SF_FRS" \
-			bash "$BASED/web/sf-prune.sh" "$ARCH" "$SDK" 2>&1 | while IFS= read -r l; do log "$l"; done
+			bash "$BASED/sf-prune.sh" "$ARCH" "$SDK" 2>&1 | while IFS= read -r l; do log "$l"; done
 	fi
 	[ -z "$KEEP_OUTPUT" ] && rm -rf "$rin"
 	return 0
@@ -355,19 +352,16 @@ line
 preflight
 
 for CUR_ARCH in $ARCH_LIST; do
+	# Only arm64 is built any more: arm, x86 and x86_64 are gone. A stale
+	# .env that still lists them is skipped here.
+	case "$CUR_ARCH" in
+	arm64) ;;
+	*)
+		log "Skip arch <$CUR_ARCH>: not built any more (only arm64)"
+		continue
+		;;
+	esac
 	for CUR_SDK in $SDK_LIST; do
-		# x86 (32-bit) stops at Android 11 (SDK 30): Google ships no 32-bit x86
-		# phone image with GMS after Android 11.
-		if [ "$CUR_ARCH" = x86 ] && [ "$CUR_SDK" -gt 30 ]; then
-			log "Skip <$CUR_ARCH/$CUR_SDK>: x86 (32-bit) is not supported after Android 11"
-			continue
-		fi
-		# arm (32-bit) stops at Android 16 (SDK 36): no 32-bit arm phone image,
-		# GSI or phone build of Android 17 exists.
-		if [ "$CUR_ARCH" = arm ] && [ "$CUR_SDK" -gt 36 ]; then
-			log "Skip <$CUR_ARCH/$CUR_SDK>: arm (32-bit) is not supported after Android 16"
-			continue
-		fi
 		# Android 7.0 (SDK 24) is the oldest target built.
 		if [ "$CUR_SDK" -lt 24 ]; then
 			log "Skip <$CUR_ARCH/$CUR_SDK>: Android 5.0-6.0 (SDK 21-23) are not supported any more"

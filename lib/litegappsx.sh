@@ -17,7 +17,7 @@ make_flashable_litegappsx(){
 		tmp77=$tmp
 		cdir $tmp77
 		printlog "- Build flashable"
-		for YR in arm arm64; do
+		for YR in arm64; do
 			copy_binary_flashable $YR $tmp77/bin/$YR
 		done
 			# copy installer payload (kopi installer)
@@ -98,7 +98,7 @@ make_flashable_litegappsx(){
 #################################################
 _litegappsx_build_variant(){
 	NAME=`read_config name`
-	BIN_ARCH=arm
+	BIN_ARCH=arm64
 	sedlog "Building $NAME"
 	printmid "Building $NAME"
 	printlog " "

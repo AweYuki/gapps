@@ -1,4 +1,4 @@
-# you can combine configs 33,34,35 or arm,arm64,x86_64
+# you can combine configs 33,34,35 or arm64
 
 sdk=36
 arch=arm64

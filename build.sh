@@ -42,13 +42,13 @@ sf_url(){
 
 # fetch_source <path under files-server/> <local file>: download one source
 # zip (gapps, bin or package). With LG_SOURCE=drive it is taken from the
-# Google Drive mirror first (rclone and the panel's token, remote
+# Google Drive mirror first (needs an rclone remote you set up yourself:
 # LG_GDRIVE_REMOTE, folder LG_GDRIVE_DIR). Anything that goes wrong there -
-# no rclone (a hand-run build on the host), the file not in the mirror, a
-# broken copy - falls back to SourceForge, so the switch is safe to leave on.
+# no rclone, the file not in the mirror, a broken copy - falls back to
+# SourceForge, so the switch is safe to leave on.
 # rclone_get <remote path> <local file>: one download with visible progress,
 # the way curl --progress-bar shows it for SourceForge. On a terminal that is
-# rclone's live progress; in a panel job log (no terminal) rclone itself
+# rclone's live progress; when the output is redirected rclone itself
 # prints "12.000 MiB / 64.000 MiB, 18%, 20 MiB/s, ETA 2s" every 3 seconds.
 # No pipe: build.sh runs under plain sh, which has no PIPESTATUS, and the
 # exit code is what decides the fallback to SourceForge.
@@ -74,32 +74,7 @@ fetch_source(){
 				return 0
 			fi
 			del "$out"
-			# Not on the mirror yet: copy it there from SourceForge first
-			# (web/gdrive-mirror.sh file, same SFTP key as every other SF job),
-			# then take it from Drive. Only where that script and SF access
-			# exist - the panel; a plain clone goes straight to SourceForge.
-			if [ -f "$base/web/gdrive-mirror.sh" ] && [ -n "$SF_USER" ]; then
-				printlog "     ! <$rel> not on the Drive mirror - mirroring it from SourceForge"
-				GDRIVE_REMOTE="${LG_GDRIVE_REMOTE:-gdrive}" GDRIVE_DIR="${LG_GDRIVE_DIR:-litegapps-mirror}" \
-					MIRROR_QUICK=1 bash "$base/web/gdrive-mirror.sh" file "$rel"
-				case $? in
-					0)
-						if rclone_get "${LG_GDRIVE_REMOTE:-gdrive}:${LG_GDRIVE_DIR:-litegapps-mirror}/files-server/$rel" "$out" \
-							&& unzip -tq "$out" >/dev/null 2>&1; then
-							return 0
-						fi
-						;;
-					4)
-						# it listed SourceForge and the file is not there: a
-						# download from SourceForge would only 404 as well
-						printlog "     ! <$rel> is not on SourceForge either"
-						del "$out"
-						return 1
-						;;
-				esac
-				del "$out"
-			fi
-			printlog "     ! <$rel> not on the Drive mirror - falling back to SourceForge"
+			printlog "     ! <$rel> not on the Drive mirror (or broken) - falling back to SourceForge"
 		else
 			printlog "     ! rclone not installed - downloading from SourceForge"
 		fi
@@ -188,31 +163,29 @@ abort(){
 	[ -d $tmp ] && del $tmp
 	exit 1
 	}
-# x86 (32-bit) is supported up to Android 11 (SDK 30) only: that is the last
-# version Google shipped a 32-bit x86 phone system image with GMS for, so
-# anything newer needs hand-picked APKs, and x86 is downloaded by almost
-# nobody. Releases already published stay where they are; nothing newer is
-# restored or built.
-X86_LAST_SDK=30
-# arm (32-bit) is supported up to Android 16 (SDK 36) only. Google ships no
-# 32-bit arm phone image or GSI with GMS for Android 17, MindTheGapps has no
-# Android 17 arm phone build (TV only), and no custom ROM runs Android 17 on a
-# 32-bit phone. Releases up to Android 16 stay; nothing newer is built.
-ARM_LAST_SDK=36
-# Android 7.0 (SDK 24) is the oldest target built, on every arch. Android
-# 5.0, 5.1 and 6.0 (SDK 21-23) were dropped; their releases stay where they
-# are, nothing new is restored or built for them.
+# Only arm64 is built any more. Every other target was dropped: arm
+# (armeabi-v7a) and x86 (32-bit), and x86_64. Their sources are no longer
+# restored and no zip is built for them. Releases already published stay on
+# the FRS.
+# Android 7.0 (SDK 24) is the oldest target built. Android 5.0, 5.1 and 6.0
+# (SDK 21-23) were dropped too; their releases stay where they are, nothing
+# new is restored or built for them.
 MIN_SDK=24
+
+# arch_supported <arch>: 0 when this architecture is still built.
+arch_supported(){
+	case "$1" in
+		arm64) return 0 ;;
+	esac
+	return 1
+}
 
 # target_supported <arch> <sdk>: 0 when that target may be restored/built.
 target_supported(){
+	if ! arch_supported "$1"; then
+		return 1
+	fi
 	if [ "$2" -lt "$MIN_SDK" ] 2>/dev/null; then
-		return 1
-	fi
-	if [ "$1" = x86 ] && [ "$2" -gt "$X86_LAST_SDK" ] 2>/dev/null; then
-		return 1
-	fi
-	if [ "$1" = arm ] && [ "$2" -gt "$ARM_LAST_SDK" ] 2>/dev/null; then
 		return 1
 	fi
 	return 0
@@ -220,14 +193,17 @@ target_supported(){
 
 # unsupported_reason <arch> <sdk>: why target_supported() refused the target.
 unsupported_reason(){
+	if ! arch_supported "$1"; then
+		case "$1" in
+			arm | x86) echo "$1 (32-bit) is not built any more, only arm64 is supported" ;;
+			*) echo "arch <$1> is not built any more, only arm64 is supported" ;;
+		esac
+		return 0
+	fi
 	if [ "$2" -lt "$MIN_SDK" ] 2>/dev/null; then
 		echo "Android $(get_android_version "$2") (SDK $2) is not supported any more, the oldest is Android 7.0 (SDK $MIN_SDK)"
 		return 0
 	fi
-	case "$1" in
-		arm) echo "arm (32-bit) is not supported after Android 16 (SDK $ARM_LAST_SDK)" ;;
-		*) echo "x86 (32-bit) is not supported after Android 11 (SDK $X86_LAST_SDK)" ;;
-	esac
 }
 
 # variant_supported <variant> <arch> <sdk>: 0 when that variant is built for
@@ -244,11 +220,11 @@ variant_supported(){
 
 # Read a top-level config value.
 #
-# The web panel keeps its own identity and version in its database and passes
-# them to a job as LG_CFG_<key> (dots become underscores), so the `config` in
-# this repository can stay a neutral default for everyone who clones it while
-# a specific builder's values never have to be committed. Anything the panel
-# does not set still comes from the file.
+# A release run passes identity and version values as LG_CFG_<key> (dots
+# become underscores), so the `config` in this repository can stay a neutral
+# default for everyone who clones it while a specific builder's values never
+# have to be committed. Anything not set in the environment comes from the
+# file.
 get_config() {
 	local key="$1" env_key value
 	env_key="LG_CFG_$(printf '%s' "$key" | tr '.-' '__')"
@@ -348,7 +324,7 @@ make_tar_arch(){
 # xz_threads: how many xz threads this machine can afford, for
 # corecompressing=multi. Builds run on very different hardware (this VPS,
 # GitHub runners, phones in Termux), so it is worked out here rather than
-# left to "-T0": some xz versions (5.4.1, the panel image's) then cap
+# left to "-T0": some xz versions (5.4.1, the Docker image's) then cap
 # themselves at 25 % of RAM - 4 of 8 cores on a 24 GB VPS - and others take
 # every core however little memory there is. One -9e thread needs ~1250 MiB
 # (xz -vv: 9993 MiB for 8); use at most 80 % of the memory that is actually
@@ -541,16 +517,14 @@ SED(){
 base="`dirname $(readlink -f "$0")`"
 [ -d $base/bin ] && chmod -R 755 $base/bin
 
+# Build host architecture, not the target one: it selects the bin/<arch>
+# tools that run on this machine. Targets are arm64 only (see arch_supported).
 case $(uname -m) in
-aarch32 | armv7l) ARCH=arm
-;;
 aarch64 | armv8l) ARCH=arm64
-;;
-i386 | i486 |i586 | i686) ARCH=x86
 ;;
 *x86_64*) ARCH=x86_64
 ;;
-*) ERROR "Architecure not support <$(uname -m)>"
+*) ERROR "Architecture not supported <$(uname -m)>, a 64-bit host (arm64 or x86_64) is required"
 ;;
 esac
 
@@ -642,10 +616,10 @@ CLEAN(){
 	litegapps_clean
 	litegappsx_clean
 	
+	# Host tool dirs (bin/<host arch>), not target arches: x86_64 stays
+	# because the build machine may be x86_64 while the target is arm64.
 	LIST_BIN="
-	$base/bin/arm
 	$base/bin/arm64
-	$base/bin/x86
 	$base/bin/x86_64
 	$base/bin/zipsigner.jar
 	"

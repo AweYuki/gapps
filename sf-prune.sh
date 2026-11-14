@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #################################################
-# web/sf-prune.sh
+# sf-prune.sh
 #
 # Keep only the newest releases of each variant on the SourceForge FRS.
 #
@@ -10,10 +10,9 @@
 # is not an ISO date (old "v3.0" or "20-02-2024" style releases) are neither
 # counted nor touched.
 #
-# usage: bash web/sf-prune.sh <arch> <sdk> [--dry-run]
+# usage: bash sf-prune.sh <arch> <sdk> [--dry-run]
 #
-# SF_PRUNE=0 turns retention off (the panel's Build > Settings switch, or
-# .env for vps-build.sh): nothing is listed or deleted.
+# SF_PRUNE=0 in .env turns retention off: nothing is listed or deleted.
 #
 # The FRS account (web.sourceforge.net) cannot run commands, so the listing
 # comes from rsync --list-only and the deletion is an sftp batch of rm/rmdir.
@@ -40,8 +39,8 @@ KEEP="${SF_KEEP_RELEASES:-15}"
 RELEASES="${SF_RELEASES:-$SF_FRS/litegapps}"
 
 case "$ARCH" in
-	arm64 | arm | x86 | x86_64) ;;
-	*) print "[ERROR] bad arch <$ARCH>"; exit 1 ;;
+	arm64) ;;
+	*) print "[ERROR] bad arch <$ARCH> (only arm64 is built)"; exit 1 ;;
 esac
 case "$SDK" in
 	2[4-9] | 3[0-7]) ;;

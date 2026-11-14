@@ -7,59 +7,40 @@ rules that are easy to get wrong.
 ## What this repo is
 
 The LiteGapps build tool: POSIX shell (`build.sh`, `lib/`, `packages/`) that
-packages Google Apps into flashable zips, plus `web/` — a Next.js + MySQL +
-Docker admin panel that drives those same scripts from a browser. The panel
-never reimplements build logic.
+packages Google Apps into flashable zips. There is no web panel and no service
+component - everything is run from a terminal, `vps-build.sh`, `sf-build.sh`
+or a GitHub workflow.
 
 ## Hard rules
 
 - Builds run on very different hardware (VPS, GitHub runners, Linux PCs, Android phones in Termux without root): adapt to the machine at run time (`nproc`, `MemAvailable`), default to safe/sequential, no root, POSIX `sh` in `build.sh`.
 - **Everything inside files is English** — `#` comments, `print`/`ui_print`
   strings, log messages, commit messages. Replies to the user can be
-  Indonesian; the code stays English. (User-facing panel strings are
-  Indonesian, since that is the panel's UI language.)
-- **Never commit secrets**: `web/.env`, ssh keys, passwords, database dumps.
-  `git check-ignore -v <path>` before assuming a new file is tracked — the
-  artifact names in `.gitignore` (`log`, `bin`, `files`, `output`, `tmp`) match
-  at *any* depth, which is why `!web/src/**` exists.
+  Indonesian; the code stays English.
+- **Never commit secrets**: `.env`, ssh keys, passwords, database dumps.
+  `git check-ignore -v <path>` before assuming a new file is tracked.
 - **Commit and push only when the user asks.**
 - **Do not run `upload` / `update-gapps-server`** unless explicitly asked; they
   publish to the release server.
-- **Never sync `web/` to the SourceForge FRS** — it is world-readable and that
-  directory holds the panel's compose file and `.env.example`.
 - The repo `config` is a neutral default (`name.builder=yourname`,
-  `build.status=unofficial`). A maintainer's identity lives in the panel
-  database and reaches builds as `LG_CFG_*`; never commit it back into
-  `config`.
+  `build.status=unofficial`). A maintainer's identity is set for a release run
+  through the environment (`LG_CFG_*`); never commit it back into `config`.
 - Android 7.0 (SDK 24) is the oldest target (`MIN_SDK`); Android 5.0-6.0
   (SDK 21-23) were dropped. Do not add them back.
 - The variants restore three different gapps bases: `<sdk>.zip` (most),
   `<sdk>-lite.zip` (lite), `superlite.zip` (superlite, the release the Android
   version originally shipped with). superlite must always build from its own
   gapps - never reuse another variant's `files.tar` for it.
-- The panel's batch uploads per target (one `rsync -R` for all variants of an
-  `<arch>/<sdk>`), `vps-build.sh` uploads per variant.
-- arm (32-bit) is supported up to Android 16 (SDK 36) only (`ARM_LAST_SDK`).
-  Do not add arm builds or sources for SDK 37+.
-- x86 (32-bit) is supported up to Android 11 (SDK 30) only. Do not add x86
-  builds or sources for SDK 31+ (`target_supported()` in `build.sh`,
-  `targetSupported()` in `web/src/lib/targets.ts`).
+- `vps-build.sh` uploads per variant, right after each one is built. Retention
+  is applied by `sf-prune.sh <arch> <sdk>` after a successful upload.
+- Only arm64 is built. arm (armeabi-v7a), x86 and x86_64 were dropped; do not
+  add builds or sources for them back (`arch_supported()` in `build.sh` and
+  `packages/make`). Releases already published for them stay on the FRS.
 - Anything uploaded to `$HOMEE` (`/home/frs/project/litegapps`) is public.
-  Database backups that go to `<project>/db/` are therefore always encrypted,
-  with a key derived from the SourceForge ssh key so a new VPS with that key
-  can restore them. Moving the panel: `.claude/skills/migrate-panel/SKILL.md`.
-
-## Before deploying the panel
-
-`bash web/start.sh` recreates the web container, which **kills a running
-build** — the job dies half way and is recorded as failed. The script now
-refuses to deploy while a job is running (database row or `web/.job.lock`);
-wait for it, or pass `--force` when you really mean it.
 
 ## Testing
 
-There is no test suite. Verify against the live panel on the VPS: `npx tsc
---noEmit -p web`, deploy, then drive the UI with the Playwright image
-(`mcr.microsoft.com/playwright:v1.48.0-jammy`, `--network host`). Test files
-must live under a home directory — snap Docker cannot see `/tmp`. Clean up
-test files and any test rows/jobs afterwards.
+There is no test suite. Check shell syntax with `sh -n build.sh packages/make`
+and `bash -n *.sh installer/kopi/META-INF/com/google/android/update-binary`,
+then do a real single-target build (`bash build.sh make litegapps lite arm64 36`)
+against restored sources. Never run `upload` / `update-gapps-server` as a test.

@@ -2,8 +2,8 @@ version=4.9
 version.code=49
 codename=stable
 # Your name, shown in the built zip. Leave the default and the build is
-# marked unofficial; the maintainer's own values live outside this file
-# (the web panel keeps them in its database).
+# marked unofficial; a release run sets a maintainer's values through
+# LG_CFG_<key> in the environment instead of committing them here.
 name.builder=yourname
 # Set to the maintainer key for official builds; anything else is unofficial
 build.status=unofficial

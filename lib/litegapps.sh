@@ -38,7 +38,7 @@ _litegapps_clean_pkgs(){
 
 # Apps already shipped in every variant's base gapps - skip when copying
 # "core" addon packages so they aren't duplicated as modules.
-# LG_CORE_KEEP (set by the web panel) replaces the list when present.
+# LG_CORE_KEEP (set by the caller) replaces the list when present.
 _litegapps_core_module(){
 	local input="$1" output="$2"
 	local keep="GoogleServicesFramework GmsCore GoogleCalendarSyncAdapter PlayStore Phonesky GoogleContactsSyncAdapter"
@@ -58,8 +58,8 @@ _litegapps_core_module(){
 	done
 }
 
-# Per-variant whitelist of extra gapps apps. LG_PKGS_<VARIANT> (set by the web
-# panel, which keeps its own editable copy) replaces the built-in list below.
+# Per-variant whitelist of extra gapps apps. LG_PKGS_<VARIANT> (set by the
+# caller) replaces the built-in list below.
 _litegapps_module_whitelist(){
 	local override
 	case "$1" in
@@ -322,10 +322,10 @@ _litegapps_build_variant(){
 			#
 			# The key is the zip the gapps were actually extracted from
 			# (.gapps-source, written by the restore), so variants that ended
-			# up on the same zip share one archive: lite on arm/x86/x86_64 has
-			# no <sdk>-lite.zip any more and falls back to <sdk>.zip, and so
-			# does superlite while no superlite.zip exists - identical files,
-			# so one xz run instead of three. A real superlite.zip or
+			# up on the same zip share one archive: lite falls back to
+			# <sdk>.zip when the server has no <sdk>-lite.zip, and so does
+			# superlite while no superlite.zip exists - identical files, so
+			# one xz run instead of three. A real superlite.zip or
 			# <sdk>-lite.zip gets a key of its own. Sources restored before
 			# the marker existed fall back to the key from the variant config.
 			GAPPS_BASE=

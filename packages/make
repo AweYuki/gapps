@@ -32,21 +32,21 @@ get_android_version(){
 		37) echo 17.0 ;;
 	 esac
 	}
-# x86 (32-bit) is supported up to Android 11 (SDK 30) only, arm (32-bit) up
-# to Android 16 (SDK 36) - same rule as target_supported() in build.sh, which
-# this standalone tool cannot source.
-X86_LAST_SDK=30
-ARM_LAST_SDK=36
+# Only arm64 is built any more - same rule as build.sh, which this standalone
+# tool cannot source. arm, x86 and x86_64 were dropped.
 # Android 7.0 (SDK 24) is the oldest target, as in build.sh.
 MIN_SDK=24
+arch_supported(){
+	case "$1" in
+		arm64) return 0 ;;
+	esac
+	return 1
+}
 target_supported(){
+	if ! arch_supported "$1"; then
+		return 1
+	fi
 	if [ "$2" -lt "$MIN_SDK" ] 2>/dev/null; then
-		return 1
-	fi
-	if [ "$1" = x86 ] && [ "$2" -gt "$X86_LAST_SDK" ] 2>/dev/null; then
-		return 1
-	fi
-	if [ "$1" = arm ] && [ "$2" -gt "$ARM_LAST_SDK" ] 2>/dev/null; then
 		return 1
 	fi
 	return 0
@@ -54,14 +54,17 @@ target_supported(){
 
 # unsupported_reason <arch> <sdk>: why target_supported() refused the target.
 unsupported_reason(){
+	if ! arch_supported "$1"; then
+		case "$1" in
+			arm | x86) echo "$1 (32-bit) is not built any more, only arm64 is supported" ;;
+			*) echo "arch <$1> is not built any more, only arm64 is supported" ;;
+		esac
+		return 0
+	fi
 	if [ "$2" -lt "$MIN_SDK" ] 2>/dev/null; then
 		echo "Android $(get_android_version "$2") (SDK $2) is not supported any more, the oldest is Android 7.0 (SDK $MIN_SDK)"
 		return 0
 	fi
-	case "$1" in
-		arm) echo "arm (32-bit) is not supported after Android 16 (SDK $ARM_LAST_SDK)" ;;
-		*) echo "x86 (32-bit) is not supported after Android 11 (SDK $X86_LAST_SDK)" ;;
-	esac
 }
 
 MAKE(){
@@ -247,10 +250,10 @@ for LIST_PROP in $(find * -name build.info -type f); do
 
 # fetch_package <path under files-server/> <local file>: download one source
 # zip (gapps, bin or package). With LG_SOURCE=drive it is taken from the
-# Google Drive mirror first (rclone and the panel's token, remote
+# Google Drive mirror first (needs an rclone remote you set up yourself:
 # LG_GDRIVE_REMOTE, folder LG_GDRIVE_DIR). Anything that goes wrong there -
-# no rclone (a hand-run build on the host), the file not in the mirror, a
-# broken copy - falls back to SourceForge, so the switch is safe to leave on.
+# no rclone, the file not in the mirror, a broken copy - falls back to
+# SourceForge, so the switch is safe to leave on.
 # Same rule as fetch_source() in build.sh, which this standalone tool cannot
 # source.
 fetch_package(){
@@ -262,7 +265,7 @@ fetch_package(){
 			# malware (Android binaries) with a 403 unless the owner accepts it.
 			local ok=1 progress="--stats 3s --stats-one-line --stats-log-level NOTICE --log-format time"
 			# Visible progress like curl's bar: live on a terminal, a line every
-			# 3 s in a panel job log. Same as rclone_get() in build.sh.
+			# 3 s when the output is redirected. Same as rclone_get() in build.sh.
 			[ -t 2 ] && progress="--progress --stats-one-line"
 			rclone copyto "${LG_GDRIVE_REMOTE:-gdrive}:${LG_GDRIVE_DIR:-litegapps-mirror}/files-server/$rel" "$out" \
 				--drive-acknowledge-abuse --retries 1 $progress && ok=0
@@ -270,29 +273,6 @@ fetch_package(){
 				return 0
 			fi
 			rm -f "$out"
-			# Not on the mirror yet: copy it there from SourceForge first, then
-			# take it from Drive (same as fetch_source() in build.sh).
-			if [ -f "$BASED/../web/gdrive-mirror.sh" ] && [ -n "$SF_USER" ]; then
-				print "! <$rel> not on the Drive mirror - mirroring it from SourceForge"
-				GDRIVE_REMOTE="${LG_GDRIVE_REMOTE:-gdrive}" GDRIVE_DIR="${LG_GDRIVE_DIR:-litegapps-mirror}" \
-					MIRROR_QUICK=1 bash "$BASED/../web/gdrive-mirror.sh" file "$rel"
-				case $? in
-					0)
-						if rclone copyto "${LG_GDRIVE_REMOTE:-gdrive}:${LG_GDRIVE_DIR:-litegapps-mirror}/files-server/$rel" "$out" \
-							--drive-acknowledge-abuse --retries 1 $progress \
-							&& unzip -tq "$out" >/dev/null 2>&1; then
-							return 0
-						fi
-						;;
-					4)
-						# it listed SourceForge and the file is not there
-						print "! <$rel> is not on SourceForge either"
-						rm -f "$out"
-						return 1
-						;;
-				esac
-				rm -f "$out"
-			fi
 			print "! <$rel> not on the Drive mirror (or broken) - falling back to SourceForge"
 			rm -f "$out"
 		else
@@ -309,7 +289,7 @@ fetch_package(){
 }
 
 RESTORE(){
-	[ -t 1 ] && clear  # only on a terminal; panel jobs have none (no TERM)
+	[ -t 1 ] && clear  # only on a terminal (a redirected job log has no TERM)
 	print
 	printmid "Restoring Files"
 	print
@@ -370,7 +350,7 @@ RESTORE(){
 	done
 	}
 CHECK(){
-	[ -t 1 ] && clear  # only on a terminal; panel jobs have none (no TERM)
+	[ -t 1 ] && clear  # only on a terminal (a redirected job log has no TERM)
 	print
 	printmid "Cheking package"
 	print
@@ -412,7 +392,7 @@ CHECK(){
 	exit 0
 	}
 CLEAN(){
-	[ -t 1 ] && clear  # only on a terminal; panel jobs have none (no TERM)
+	[ -t 1 ] && clear  # only on a terminal (a redirected job log has no TERM)
 	print
 	printmid "Cleaning Dir/Files"
 	print
@@ -451,7 +431,7 @@ CLEAN(){
 	}
 	
 UPLOAD(){
-	[ -t 1 ] && clear  # only on a terminal; panel jobs have none (no TERM)
+	[ -t 1 ] && clear  # only on a terminal (a redirected job log has no TERM)
 	print
 	printmid "Cheking package"
 	print
@@ -481,7 +461,7 @@ UPLOAD(){
 	done
 	}
 zip_make(){
-	[ -t 1 ] && clear  # only on a terminal; panel jobs have none (no TERM)
+	[ -t 1 ] && clear  # only on a terminal (a redirected job log has no TERM)
 	print
 	printmid "Make ZIP"
 	print
@@ -505,7 +485,7 @@ zip_make(){
 	
 	}
 zip_upload(){
-	[ -t 1 ] && clear  # only on a terminal; panel jobs have none (no TERM)
+	[ -t 1 ] && clear  # only on a terminal (a redirected job log has no TERM)
 	print
 	printmid "Upload ZIP to sourceforge"
 	print

@@ -102,7 +102,7 @@ unzip -o "$ZIPFILE" >&2
 
 [ ! -f module.prop ] && abort "- Module.prop Not Found (out of space in <$TMPDIR6070>?)"
 
-for AY in arm64 arm x86 x86_64; do
+for AY in arm64; do
 	if $MODPATH/bin/$AY/toybox 2>/dev/null | grep -q mount; then
 		unset TOYBOX
 		export TOYBOX=$MODPATH/bin/$AY/toybox

@@ -57,29 +57,3 @@ packages/files
 packages/output
 packages/zip-server
 packages/tmp
-
-# web/ build panel (Next.js)
-web/node_modules
-web/.next
-web/job-logs
-web/next-env.d.ts
-web/tsconfig.tsbuildinfo
-web/.last_deploy_hash
-web/db-backups
-web/db-backups.json
-
-# The broad build-artifact names above (log, bin, output, files, tmp) have no
-# leading slash, so they match at ANY depth - including app route segments
-# like web/src/app/api/jobs/[id]/log/. Keep the panel source out of their way.
-!web/src/
-!web/src/**
-web/.job.lock
-
-# Google Drive mirror state, written by web/gdrive-mirror.sh
-web/mirror-status.json
-
-web/mirror-files.json
-web/mirror-copied.tsv
-
-# Public addon index, written by web/make-addon-api.sh and served at /api/addon/
-web/api/
