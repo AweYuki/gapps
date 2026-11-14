@@ -109,12 +109,11 @@ variants_for(){
 	case "$ARCH" in
 	arm64)
 		if [ "$SDK" -le 25 ]; then
-			echo "core lite"
-		elif [ "$SDK" -le 28 ]; then
-			# go only exists for arm64 Android 10 (SDK 29) and up
-			echo "pixel micro nano basic user core lite"
+			# the addon source only exists from SDK 26 on, so only lite
+			# (which needs no addon) is built below that
+			echo "lite"
 		else
-			echo "pixel micro nano basic user go core lite"
+			echo "pixel basic awe lite"
 		fi
 		;;
 	esac
@@ -125,24 +124,11 @@ variants_for(){
 #################################################
 variant_list(){
 	case "$1" in
-	micro) echo "
-AndroidAuto Arcore SettingsIntelligenceGoogle DeskClockGoogle SoundPicker Chrome
-Gmail Files GoogleAssistant GoogleCalculator GoogleCalendar GoogleContacts
-GoogleDialer GoogleKeyboard GoogleTTS LocationHistory MarkupGoogle Messaging
-PixelLauncher PixelLiveWallpaper Talkback Turbo Velvet GoogleSearch
-WallpaperPicker Wellbeing" ;;
-	nano) echo "
-AndroidAuto Arcore DeskClockGoogle DevicePolicy DreamLiner Gmail GoogleAssistant
-GoogleCalculator GoogleCalendar GoogleContacts GoogleDialer GoogleKeyboard
-LocationHistory MarkupGoogle Messaging PlayGames SoundPicker WallpaperPicker
-Wellbeing" ;;
 	basic) echo "
 AndroidAuto Arcore DevicePolicy GoogleDialer GoogleContacts LocationHistory
 MarkupGoogle SoundPicker Wellbeing" ;;
-	user) echo "
-Chrome GoogleKeyboard PixelLauncher PixelLiveWallpaper Gmail" ;;
-	go) echo "
-AssistantGo GalleryGo GmailGo MapsGo NavigationGo VelvetGo" ;;
+	awe) echo "
+Chrome GoogleKeyboard SoundPicker" ;;
 	esac
 }
 
@@ -258,17 +244,12 @@ prep_modules(){
 	case "$variant" in
 	lite)
 		: ;; # modules disabled for lite
-	core)
-		core_module "$psrc/core" "$mout/core" ;;
 	pixel)
 		core_module "$psrc/core" "$mout/core"
 		[ -d "$psrc/gapps" ] && cp -rdf "$psrc/gapps" "$mout/" ;;
-	micro | nano | basic | user)
+	basic | awe)
 		core_module "$psrc/core" "$mout/core"
 		copy_whitelist "$variant" "$psrc/gapps" "$mout/gapps" ;;
-	go)
-		core_module "$psrc/core" "$mout/core"
-		copy_whitelist "$variant" "$psrc/go" "$mout/go" ;;
 	esac
 }
 
@@ -309,7 +290,7 @@ cleanup_target(){
 		rm -rf "$BASED/packages/output/$ARCH/$SDK"
 		rm -rf "$BASED/output/litegapps/$ARCH/$SDK"
 	fi
-	for v in lite core go micro pixel nano basic user; do
+	for v in lite pixel basic awe; do
 		rm -rf "$BASED/core/litegapps/$v/gapps/$ARCH/$SDK"
 		rm -rf "$BASED/core/litegapps/$v/modules/$ARCH/$SDK"
 	done

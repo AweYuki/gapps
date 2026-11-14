@@ -16,10 +16,10 @@ read_config(){ getp "$1" "$BASED/config"; }
 
 #################################################
 # Package/addon build + module prep, for variants with modules=true
-# (pixel, micro, nano, basic, user, go, core). Mirrors PIXEL()/MICRO()/etc
-# in sf-build.sh and prep_modules()/core_module()/copy_whitelist() in
-# vps-build.sh, but lives here so `build.sh make litegapps <variant>` is
-# self-contained - no external script needed to stage modules first.
+# (pixel, basic, awe). Mirrors PIXEL()/BASIC()/AWE() in sf-build.sh and
+# prep_modules()/core_module()/copy_whitelist() in vps-build.sh, but lives
+# here so `build.sh make litegapps <variant>` is self-contained - no external
+# script needed to stage modules first.
 #################################################
 
 # Package names are directory names in the addon output; anything else in an
@@ -63,11 +63,8 @@ _litegapps_core_module(){
 _litegapps_module_whitelist(){
 	local override
 	case "$1" in
-		micro) override="${LG_PKGS_MICRO:-}" ;;
-		nano)  override="${LG_PKGS_NANO:-}" ;;
 		basic) override="${LG_PKGS_BASIC:-}" ;;
-		user)  override="${LG_PKGS_USER:-}" ;;
-		go)    override="${LG_PKGS_GO:-}" ;;
+		awe)   override="${LG_PKGS_AWE:-}" ;;
 		*)     override="" ;;
 	esac
 	if [ -n "$override" ]; then
@@ -75,24 +72,11 @@ _litegapps_module_whitelist(){
 		return 0
 	fi
 	case "$1" in
-	micro) echo "
-AndroidAuto Arcore SettingsIntelligenceGoogle DeskClockGoogle SoundPicker Chrome
-Gmail Files GoogleAssistant GoogleCalculator GoogleCalendar GoogleContacts
-GoogleDialer GoogleKeyboard GoogleTTS LocationHistory MarkupGoogle Messaging
-PixelLauncher PixelLiveWallpaper Talkback Turbo Velvet GoogleSearch
-WallpaperPicker Wellbeing" ;;
-	nano) echo "
-AndroidAuto Arcore DeskClockGoogle DevicePolicy DreamLiner Gmail GoogleAssistant
-GoogleCalculator GoogleCalendar GoogleContacts GoogleDialer GoogleKeyboard
-LocationHistory MarkupGoogle Messaging PlayGames SoundPicker WallpaperPicker
-Wellbeing" ;;
 	basic) echo "
 AndroidAuto Arcore DevicePolicy GoogleDialer GoogleContacts LocationHistory
 MarkupGoogle SoundPicker Wellbeing" ;;
-	user) echo "
-Chrome GoogleKeyboard PixelLauncher PixelLiveWallpaper Gmail" ;;
-	go) echo "
-AssistantGo GalleryGo GmailGo MapsGo NavigationGo VelvetGo" ;;
+	awe) echo "
+Chrome GoogleKeyboard SoundPicker" ;;
 	esac
 }
 
@@ -150,17 +134,12 @@ _litegapps_prep_modules(){
 	local mout="$base/core/litegapps/$variant/modules/$P_ARCH/$P_SDK"
 	rm -rf "$mout"
 	case "$variant" in
-	core)
-		_litegapps_core_module "$psrc/core" "$mout/core" ;;
 	pixel)
 		_litegapps_core_module "$psrc/core" "$mout/core"
 		[ -d "$psrc/gapps" ] && cp -rdf "$psrc/gapps" "$mout/" ;;
-	micro | nano | basic | user)
+	basic | awe)
 		_litegapps_core_module "$psrc/core" "$mout/core"
 		_litegapps_copy_whitelist "$variant" "$psrc/gapps" "$mout/gapps" ;;
-	go)
-		_litegapps_core_module "$psrc/core" "$mout/core"
-		_litegapps_copy_whitelist "$variant" "$psrc/go" "$mout/go" ;;
 	esac
 }
 
@@ -257,9 +236,9 @@ make_flashable_litegapps(){
 		echo "litegapps_sdk=$W_SDK" >> $MODULE_PROP
 
 		if [ "$VARIANT" = "lite" ]; then
-		local NAME_ZIP="LiteGapps-${W_ARCH}-$(get_android_version $W_SDK)-$(date +%Y%m%d)-${PROP_STATUS}.zip"
+		local NAME_ZIP="AweGapps-${W_ARCH}-$(get_android_version $W_SDK)-$(date +%Y%m%d)-${PROP_STATUS}.zip"
 		else
-		local NAME_ZIP="LiteGapps-$VARIANT-${W_ARCH}-$(get_android_version $W_SDK)-$(date +%Y%m%d)-${PROP_STATUS}.zip"
+		local NAME_ZIP="AweGapps-$VARIANT-${W_ARCH}-$(get_android_version $W_SDK)-$(date +%Y%m%d)-${PROP_STATUS}.zip"
 		fi
 		local OUT_ZIP=$out/litegapps/$W_ARCH/$W_SDK/$VARIANT/$(date +%Y-%m-%d)/$NAME_ZIP
 		make_zip $tmp $OUT_ZIP
@@ -295,7 +274,7 @@ _litegapps_build_variant(){
 				continue
 			fi
 			if ! variant_supported "$VARIANT" "$W_ARCH" "$W_SDK"; then
-				printlog "[SKIP] <$VARIANT $W_ARCH $W_SDK> variant $VARIANT is only built for arm64 Android 10 (SDK $GO_MIN_SDK) and up"
+				printlog "[SKIP] <$VARIANT $W_ARCH $W_SDK> variant $VARIANT does not support this target"
 				continue
 			fi
 			sedlog "Building $NAME"
@@ -314,20 +293,18 @@ _litegapps_build_variant(){
 			[ -d $tmp ] && del $tmp && cdir $tmp || cdir $tmp
 			# copying gapps
 			# The variants do not share one gapps base: lite restores
-			# <sdk>-lite.zip, superlite its own fixed superlite.zip (the older
-			# gapps this Android version first shipped with), the rest
-			# <sdk>.zip. So the shared archive of litegapps.tar=multi is kept
-			# per gapps source, never per arch/sdk alone - superlite always
-			# builds its own files.tar and never reuses another variant's.
+			# <sdk>-lite.zip, the rest <sdk>.zip. So the shared archive of
+			# litegapps.tar=multi is kept per gapps source, never per arch/sdk
+			# alone.
 			#
 			# The key is the zip the gapps were actually extracted from
 			# (.gapps-source, written by the restore), so variants that ended
 			# up on the same zip share one archive: lite falls back to
-			# <sdk>.zip when the server has no <sdk>-lite.zip, and so does
-			# superlite while no superlite.zip exists - identical files, so
-			# one xz run instead of three. A real superlite.zip or
-			# <sdk>-lite.zip gets a key of its own. Sources restored before
-			# the marker existed fall back to the key from the variant config.
+			# <sdk>.zip when the server has no <sdk>-lite.zip, and then shares
+			# the others' archive - identical files, so one xz run instead of
+			# several. A real <sdk>-lite.zip gets a key of its own. Sources
+			# restored before the marker existed fall back to the key from the
+			# variant config.
 			GAPPS_BASE=
 			[ -f "$BASED/gapps/$W_ARCH/$W_SDK/.gapps-source" ] && \
 				GAPPS_BASE="src-$(head -n1 "$BASED/gapps/$W_ARCH/$W_SDK/.gapps-source" | tr -cd 'A-Za-z0-9._-')"
@@ -348,7 +325,7 @@ _litegapps_build_variant(){
 				continue
 			fi
 
-			# This function is used to create a single .tar file and is used for many variants. This speeds up the build process for many variants of pixel, micro, core, and lite.
+			# This function is used to create a single .tar file for many variants, speeding up builds of pixel, basic, awe and lite.
 			if [ $(get_config litegapps.tar) = "multi" ] && [ ! -f $tmpfiles/files.tar.$(get_config compression) ]; then
 			printlog "- make archive files.tar <multi config is active>"
 			make_tar_arch
@@ -439,7 +416,7 @@ printlog " "
 
 
 GSUFFIX=$(read_config restore.suffix)       # per-variant gapps zip suffix (e.g. -lite) -> <sdk><suffix>.zip
-GFILENAME=$(read_config restore.filename)   # per-variant fixed gapps zip name (e.g. superlite) -> <name>.zip, no sdk prefix
+GFILENAME=$(read_config restore.filename)   # per-variant fixed gapps zip name -> <name>.zip, no sdk prefix
 SERVER_GAPPS=https://sourceforge.net/projects/litegapps/files/files-server/litegapps
 NUM_6070=0
 for D_ARCH in $LIST_ARCH; do
@@ -449,7 +426,7 @@ for D_ARCH in $LIST_ARCH; do
 			continue
 		fi
 		if ! variant_supported "${BASED##*/}" "$D_ARCH" "$D_SDK"; then
-			printlog "[SKIP] <${BASED##*/} $D_ARCH $D_SDK> variant ${BASED##*/} is only built for arm64 Android 10 (SDK $GO_MIN_SDK) and up"
+			printlog "[SKIP] <${BASED##*/} $D_ARCH $D_SDK> variant ${BASED##*/} does not support this target"
 			continue
 		fi
 		if [ -n "$GFILENAME" ]; then

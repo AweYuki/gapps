@@ -1,6 +1,6 @@
 #!/system/bin/sh
-#LiteGapps Action.sh
-#by The LiteGapps Open Source Project
+# AweGapps Action.sh
+# Based on LiteGapps; see the repository README for upstream credits.
 
 
 API=`getprop ro.build.version.sdk`
@@ -137,7 +137,7 @@ get_android_version(){
 	 esac
 	}
 	
-printmid "LiteGapps Action"
+printmid "AweGapps Action"
 print " "
 print "- Checking if gapps has been installed correctly"
 

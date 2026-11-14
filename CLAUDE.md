@@ -4,8 +4,9 @@ Guidance for Claude Code when working in this repository.
 
 ## What this is
 
-LiteGapps is a small, systemless Google Apps package for Android, flashed as a
-Magisk/Kopi module. **This repo is the build tool** that packages gapps files
+AweGapps is a small, systemless Google Apps package for Android, flashed as a
+Magisk/Kopi module. It is a renamed fork of LiteGapps; see README.md for credits.
+**This repo is the build tool** that packages gapps files
 into flashable zips. The build itself is entirely POSIX shell (`sh`/`bash`)
 with no compiler and no test suite. There is no web panel and no service
 component: everything runs from a terminal, `vps-build.sh`, `sf-build.sh` or
@@ -112,11 +113,16 @@ Logs: `log/make.log` and `log/make_live.log` — **read these first when a build
   shipped in flashable zips any more.
 - `config` — top-level build config (version, compression, which products/variants).
 - `core/litegapps/<variant>/` — one dir per variant
-  (`lite core go micro pixel nano basic user superlite`), each with its own `config`,
+  (`lite pixel basic awe`), each with its own `config`,
   `restore/`, `gapps/`, `modules/`, `utils/README.md`. They do not all restore the
   same gapps zip - see "Variants and where their gapps come from" below, which
-  is the rule superlite, lite and go all hang off.
-- `core/litegappsx/` — second product, `microg` only, off by default (`litegappsx.build=false`).
+  is the rule lite hangs off.
+- `core/litegappsx/` — second product, `microg` only, enabled by
+  `litegappsx.build=true` in `config` (was off by default before 2026-11-14).
+  Its components come from `micro5k/microg-unofficial-installer`: only the
+  Apache-2.0 APKs and CC0-1.0 permission XMLs are downloaded, never its
+  GPL-3.0 shell code, so this repo stays MIT. The restored tree keeps the
+  `cross_system/` + `cross_sdk/<api>/` shape the installer expects.
 - `packages/` — addon/apk packaging tool (a vendored standalone sub-project; called as a
   black box via `bash packages/make make $ARCH $SDK`, has its own `packages/utils` installer).
 - `sf-build.sh` — legacy maintainer auto-build, runs on the **SourceForge build VPS**
@@ -173,22 +179,17 @@ Logs: `log/make.log` and `log/make_live.log` — **read these first when a build
 
 ## Variants and where their gapps come from
 
-The variants are **not** the same files with different app lists: three
+The variants are **not** the same files with different app lists: two
 different gapps bases feed them, which is why several rules elsewhere in this
 file key on the variant.
 
 | Variant | gapps zip restored | Set by |
 |---|---|---|
-| core, pixel, micro, nano, basic, user, go | `<sdk>.zip` | (default) |
+| pixel, basic, awe | `<sdk>.zip` | (default) |
 | lite | `<sdk>-lite.zip`, falling back to `<sdk>.zip` when the server has none | `restore.suffix=-lite` |
-| superlite | `superlite.zip` | `restore.filename=superlite` |
 
-**superlite is the odd one**: that zip is the gapps release the Android version
-originally shipped with, so its app versions differ from every other variant of
-the same SDK. It must always be built from its own gapps - never from another
-variant's files - which is what the per-gapps-base cache key below guarantees.
-Both superlite and go are built for arm64 SDK 29+ only (see Supported
-targets).
+This fork keeps only those four variants. core, go, micro, nano, user and
+superlite were removed; do not add them back.
 
 ## Releasing to SourceForge
 
@@ -301,16 +302,13 @@ as `src-<zip>`. Variants that ended up on the same zip share one archive -
 identical files, identical output - and anything with a zip of its own gets
 its own key:
 
+- pixel, basic and awe all restore `<sdk>.zip`, so they share one archive and
+  xz runs once per target for all three;
 - lite falls back to `<sdk>.zip` when the server has no `<sdk>-lite.zip`
-  (arm64 24-28 and 34) and now shares core's archive (one xz run per target
-  instead of two; batch #71 ran xz 7 times for 7 zips and reused nothing);
-- **superlite carries a different gapps version** - the release the Android
-  version originally shipped with - *when `superlite.zip` exists*; then its
-  key is `src-superlite` and it never inherits another variant's archive.
-  While the server has no `superlite.zip` it falls back to `<sdk>.zip` and
-  shares that archive, because the files are then literally the same;
+  (arm64 24-28 and 34) and then shares that same archive; a real
+  `<sdk>-lite.zip` gets a key of its own;
 - sources restored before the marker existed use the old key from the
-  variant config (`sdk`, `sdk-lite`, `superlite`).
+  variant config (`sdk`, `sdk-lite`).
 
 `vps-build.sh` logs a timestamp on every step, so further speed-ups can be
 measured from `vps-build-logs/vps-build.log`.
@@ -336,13 +334,12 @@ in `build.sh` (copied into the standalone `packages/make`, and applied in
 builds or sources back for any of them. Their published releases stay on the
 FRS, and still install.
 
-The **go** and **superlite** variants are built for **arm64 Android 10 (SDK
-29) and up only**: go because Google's Go apps it is made of do not exist for
-the other targets, superlite because it is only released for that range
-(since 2026-09-23; before that x86_64 got it from SDK 29 as well). The rule is
-`variant_supported()` / `GO_MIN_SDK` in `build.sh` (checked by both the make
-and the restore loop in `lib/litegapps.sh`), `GO()` in `sf-build.sh`, and
-`variants_for()` in `vps-build.sh`.
+All four remaining variants build for every supported arm64 SDK.
+`variant_supported()` in `build.sh` is the hook a future variant would use to
+restrict itself; it is checked by both the make and the restore loop in
+`lib/litegapps.sh`. Variant selection for unattended builds lives in
+`variants_for()` (`vps-build.sh`) and `MAKE_LITEGAPPS()` (`sf-build.sh`):
+everything above SDK 25, lite alone below that (the addon source starts at 26).
 
 ## Adding Android/SDK support
 
@@ -362,8 +359,8 @@ are gone; sync it with rclone by hand.
 
 - Offered, not done: `sf.mirror=phoenixnap` in `config` (measured 18 MB/s vs
   9 MB/s default) - the user decides.
-- Unproven: the per-gapps-base `files.tar` cache key - build lite and superlite
-  for one target with `litegapps.tar=multi` and marker files, then compare the
+- Unproven: the per-gapps-base `files.tar` cache key - build lite and basic for
+  one target with `litegapps.tar=multi` and marker files, then compare the
   two zips' `files.tar.xz`, on a free tree.
 - **Bug (reported 2026-10-27, open): Setup Wizard stops after a ROM update.**
   The user updated the ROM over a Kopi (system) install; `27-litegapps.sh`

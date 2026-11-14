@@ -246,8 +246,10 @@ else
 fi
 printlog "|___________________________________"
 printlog "|"
-printlog "| Website         : https://litegapps.github.io"
-printlog "| Telegram        : https://t.me/litegapps"
+printlog "| Project         : AweGapps"
+printlog "| Upstream credit : The LiteGapps Project"
+printlog "| Upstream site   : https://litegapps.github.io"
+printlog "| Telegram        : https://t.me/litegapps (upstream)"
 printlog "|___________________________________"
 printlog "|              Device Info"
 printlog "| Name Rom        : $(GET_PROP ro.build.display.id)"
@@ -323,7 +325,7 @@ chcon -hR u:object_r:system_file:s0 "$1" || sedlog "Failed chcon $1"
 
 terminal_tips(){
 	print " "
-	print "  Thanks for using litegapps 😁"
+	print "  Thanks for using AweGapps 😁"
 	print " "
 	print "*Tips"
 	print "- Open Terminal"
@@ -1025,10 +1027,10 @@ MEM_CHECK_TMP
 
 #### Diference litegappsX
 if [ $(getp litegapps_type $MODPATH/module.prop) = litegappsx ]; then
-	sedlog "LiteGapps Type : LiteGapps X"
+	sedlog "AweGapps Type : AweGapps X"
 	litegappsx
 else
-	sedlog "LiteGapps Type : LiteGapps Reguler"
+	sedlog "AweGapps Type : Regular"
 fi
 #### End defference litegappsX
 

@@ -1,6 +1,6 @@
 #!/sbin/sh
 # Copyright 2020 - 2026 The Litegapps Project
-# 27-litegapps.sh - keep a LiteGapps "kopi" (system) install across ROM updates
+# 27-litegapps.sh - keep an AweGapps "kopi" (system) install across ROM updates
 # ADDOND_VERSION=3
 #
 # Run by the ROM's backuptool - backuptool.sh from recovery, backuptool_ab.sh
@@ -106,14 +106,14 @@ debloat_target(){
 
 case "$1" in
 	pre-backup)
-		print "LiteGapps addon.d (system $S, backup $C)"
+		print "AweGapps addon.d (system $S, backup $C)"
 	;;
 	backup)
 		if [ ! -d "$S/etc/kopi/modules/litegapps" ]; then
-			print "! LiteGapps is not installed in $S - nothing to keep"
+			print "! AweGapps is not installed in $S - nothing to keep"
 			exit 0
 		fi
-		print "- Backing up LiteGapps"
+		print "- Backing up AweGapps"
 		rm -rf "$base"
 		mkdir -p "$base"
 		cp -rdf "$S/etc/kopi/modules/litegapps/." "$base/"
@@ -132,7 +132,7 @@ case "$1" in
 	;;
 	restore)
 		if [ ! -f "$module" ]; then
-			print "! No LiteGapps backup in $C - skipping restore"
+			print "! No AweGapps backup in $C - skipping restore"
 			exit 0
 		fi
 		print "- Restoring $(getp name "$module") $(getp version "$module")"
@@ -185,7 +185,7 @@ case "$1" in
 		fi
 	;;
 	post-restore)
-		print "- LiteGapps $(getp litegapps_variant "$module") restored"
+		print "- AweGapps $(getp litegapps_variant "$module") restored"
 		rm -rf "$base"
 	;;
 esac

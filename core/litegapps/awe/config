@@ -1,0 +1,10 @@
+# you can combine configs 33,34,35 or arm64
+
+sdk=36
+arch=arm64
+restore.sdk=35
+restore.arch=arm64
+name=AweGapps
+dir_name=awe
+modules=true
+desc=AweGapps Awe is a minimal custom gapps: Chrome, Google Keyboard and Sound Picker on top of the base gapps.

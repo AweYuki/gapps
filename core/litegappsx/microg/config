@@ -1,4 +1,4 @@
-name=LiteGappsX MicroG
+name=AweGappsX MicroG
 dir_name=microg
 modules=false
-desc=litegapps is a google apps package that supports almost all arch and android versions while maintaining lightness, saving battery and more.
+desc=AweGappsX is a Google Apps package that supports almost all arch and android versions while maintaining lightness, saving battery and more.

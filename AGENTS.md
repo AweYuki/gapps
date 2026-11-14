@@ -6,7 +6,7 @@ rules that are easy to get wrong.
 
 ## What this repo is
 
-The LiteGapps build tool: POSIX shell (`build.sh`, `lib/`, `packages/`) that
+The AweGapps build tool (forked from LiteGapps): POSIX shell (`build.sh`, `lib/`, `packages/`) that
 packages Google Apps into flashable zips. There is no web panel and no service
 component - everything is run from a terminal, `vps-build.sh`, `sf-build.sh`
 or a GitHub workflow.
@@ -27,10 +27,10 @@ or a GitHub workflow.
   through the environment (`LG_CFG_*`); never commit it back into `config`.
 - Android 7.0 (SDK 24) is the oldest target (`MIN_SDK`); Android 5.0-6.0
   (SDK 21-23) were dropped. Do not add them back.
-- The variants restore three different gapps bases: `<sdk>.zip` (most),
-  `<sdk>-lite.zip` (lite), `superlite.zip` (superlite, the release the Android
-  version originally shipped with). superlite must always build from its own
-  gapps - never reuse another variant's `files.tar` for it.
+- Only four variants exist: `pixel`, `basic`, `awe`, `lite`. core, go, micro,
+  nano, user and superlite were removed; do not add them back.
+- They restore two gapps bases: `<sdk>.zip` (pixel, basic, awe) and
+  `<sdk>-lite.zip` (lite, falling back to `<sdk>.zip`).
 - `vps-build.sh` uploads per variant, right after each one is built. Retention
   is applied by `sf-prune.sh <arch> <sdk>` after a successful upload.
 - Only arm64 is built. arm (armeabi-v7a), x86 and x86_64 were dropped; do not

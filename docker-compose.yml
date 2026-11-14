@@ -7,9 +7,9 @@
 #
 # !!! KEEP THE BUILT IMAGE PRIVATE — it contains your SourceForge SSH key.
 services:
-  litegapps-build:
+  awegapps-build:
     build: .
-    container_name: litegapps-build
+    container_name: awegapps-build
     restart: "no"
     volumes:
       # Persist logs on the host so they survive `docker compose down`.

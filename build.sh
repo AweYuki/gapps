@@ -207,15 +207,11 @@ unsupported_reason(){
 }
 
 # variant_supported <variant> <arch> <sdk>: 0 when that variant is built for
-# the target. go and superlite are arm64 Android 10 (SDK 29) and up only:
-# go is made of Google's Go apps, which only exist there, and superlite is
-# only released for that range. Every other target skips them.
-GO_MIN_SDK=29
+# the target. Every remaining variant (pixel, basic, awe, lite) builds for
+# every supported target; the hook stays so a future variant can restrict
+# itself without touching the callers.
 variant_supported(){
-	case "$1" in
-		go | superlite) [ "$2" = arm64 ] && [ "$3" -ge "$GO_MIN_SDK" ] 2>/dev/null ;;
-		*) return 0 ;;
-	esac
+	return 0
 }
 
 # Read a top-level config value.

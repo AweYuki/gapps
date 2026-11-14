@@ -2,7 +2,7 @@
 
 Standalone addon/APK packaging tool, vendored into this repo. It builds the
 per-app "addon" packages (Google Play Store, Play Services, GSF, etc.) that
-`build.sh` later pulls into a LiteGapps flashable zip.
+`build.sh` later pulls into an AweGapps flashable zip.
 
 This is a **separate sub-project** from the rest of the repo — it has its own
 `config`, its own installer payload (`utils/`), and is invoked as a black box
@@ -47,7 +47,7 @@ bash packages/make zip-upload               # upload those zips
 
 - `vps-build.sh` calls `bash packages/make restore`/`make`/`upload` per
   arch/sdk target, before invoking `build.sh make litegapps ...` for each
-  variant — addon packages must exist under `files/` before a LiteGapps zip
+  variant — addon packages must exist under `files/` before an AweGapps zip
   can bundle them.
 - `sf-build.sh` (the legacy SourceForge-VPS script) does the same, but
   since it already runs on the box that hosts `zip-server/`, it skips the

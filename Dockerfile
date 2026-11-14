@@ -1,4 +1,4 @@
-# Self-contained LiteGapps build image (survives SSH logout).
+# Self-contained AweGapps build image (survives SSH logout).
 #
 # SSH keys + .env are BAKED INTO the image so the container can scp to
 # SourceForge with no runtime mounts.

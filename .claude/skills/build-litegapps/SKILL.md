@@ -1,9 +1,9 @@
 ---
 name: build-litegapps
-description: Understand and build the LiteGapps project — a systemless Google Apps package for Android built via build.sh. Use whenever the user wants to restore/build/clean LiteGapps, add SDK/Android or arch support, edit variants (lite, core, go, micro, pixel, nano, basic, user), manage gapps packages, tweak the config, or debug the build. Triggers: "build litegapps", "restore", "make gapps", "add A17/SDK support", "new variant", "auto-build".
+description: Understand and build the AweGapps project (fork of LiteGapps) — a systemless Google Apps package for Android built via build.sh. Use whenever the user wants to restore/build/clean it, add SDK/Android or arch support, edit variants (lite, pixel, basic, awe), manage gapps packages, tweak the config, or debug the build. Triggers: "build litegapps", "build awegapps", "restore", "make gapps", "add A17/SDK support", "new variant", "auto-build".
 ---
 
-# Build LiteGapps
+# Build AweGapps (upstream: LiteGapps)
 
 LiteGapps is a small, systemless Google Apps package for Android, flashed as a
 Magisk/Kopi module. This repo is the **build tool** that packages gapps files
@@ -40,16 +40,16 @@ when a build fails**, they contain the real error.
 | `installer/` | Flashable-zip installer payload copied into every zip: `kopi/` installer, `customize.sh`, `action.sh`, `module.prop`, `LICENSE`, `27-litegapps.sh`, `litegapps-post-fs`, `litegapps`. Referenced in build code as **`$utils`** (set in `build.sh`). Was `core/utils/`. |
 | `config` | Top-level build config (version, compression, which products/variants to build). See below. |
 | `core/litegapps/restore.sh` | Downloads/extracts the gapps files for each variant during `restore` (sourced by `litegapps_restore`). |
-| `core/litegapps/<variant>/` | One dir per variant (`lite core go micro pixel nano basic user`). Contains `config`, `restore/<arch>/<sdk>/`, `gapps/<arch>/<sdk>/` (populated by restore), `modules/`, `utils/README.md`. |
+| `core/litegapps/<variant>/` | One dir per variant (`lite pixel basic awe`). Contains `config`, `restore/<arch>/<sdk>/`, `gapps/<arch>/<sdk>/` (populated by restore), `modules/`, `utils/README.md`. `awe` is this fork's own variant; its app list is the `awe` case in `_litegapps_module_whitelist()` (`lib/litegapps.sh`). |
 | `core/litegapps/<variant>/config` | Per-variant config: `sdk`, `arch`, `restore.sdk`, `restore.arch`, `name`, `dir_name`, `modules`, `desc`, plus the gapps-source overrides below. |
-| `core/litegappsx/` | The "litegappsx" product — **`microg` only** now. Off by default (`litegappsx.build=false`). |
+| `core/litegappsx/` | The "litegappsx" product — **`microg` only** now. Enabled in `config` with `litegappsx.build=true`; build it on its own with `bash build.sh make litegappsx microg`. Sources come from `micro5k/microg-unofficial-installer` (Apache-2.0 APKs + CC0-1.0 XMLs only; its GPL-3.0 scripts are not used). Cached downloads live in `core/litegappsx/microg/files/microg/`. |
 | `packages/` | Addon/apk packaging tool (`packages/make`, `packages/config`) — a vendored standalone sub-project called as a black box (`bash packages/make make $ARCH $SDK`), with its own `packages/utils` installer. Produces the raw gapps that get restored. |
 | `files/` | Where `bin.zip` is downloaded to during restore. Gitignored. |
 | `vps-build.sh` | **Unattended full build for a self-hosted VPS** (no time limit). Loops every `ARCH × SDK` from `.env`; per target: download package source from SourceForge → `packages/make make` (build addon) → scp addon to SF → download gapps → build every litegapps variant (via `build.sh make`) → scp zips to SF → **delete all sources/output before the next target** so a low-memory VPS holds only one target at a time. Failures are logged to `vps-build-logs/vps-build-failed.log` and the run continues. Its own consolidated log goes to `vps-build-logs/`, separate from `build.sh`'s `log/` (which appends across runs). Config via `.env` (gitignored: `SF_USER`, `ARCH_LIST`, `SDK_LIST`). Run detached (Docker via `Dockerfile`/`docker-compose.yml`, or `tmux`/`nohup`) so it survives SSH logout. Uploads reuse the proven scp-to-`web.sourceforge.net:/home/frs/project/litegapps/...` pattern. |
 | `Dockerfile` / `docker-compose.yml` / `.dockerignore` | Containerized runner for `vps-build.sh` — clean env with all deps (curl, zip, tar, xz, brotli, unzip, java), SSH keys mounted read-only from the host, runs detached (`docker run -d` / `docker compose up -d`). |
 | `sf-prune.sh` / `sf-common.sh` | Release retention on the FRS: `bash sf-prune.sh <arch> <sdk> [--dry-run]` keeps the newest `SF_KEEP_RELEASES` (15) dated folders per variant. Called by `vps-build.sh` after a successful upload; `sf-common.sh` holds the shared `.env` loading and ssh options. |
 | `sf-build.sh` | Legacy maintainer auto-build script run on the **SourceForge build VPS** (`$HOMEE=/home/frs/project/litegapps`). Interactive menu (arch/sdk prompt → Make Addon / Make LiteGapps / extract / release / **Build All**). Note: the SourceForge VPS enforces a **4-hour job time limit**, so builds must fit within that window — favor `litegapps.tar=single`/`multi` reuse and reasonable compression levels to stay under it. Meant for the release server, not casual local builds. |
-| `sf-build.sh` menu 6 "Build All" | Resumable batch build: loops arm64 (SDK 37→24), running `UNZIP_FILE_SERVER`→`UNZIP_GAPPS`→`MAKE_ADDON`→`MAKE_LITEGAPPS` per combo. Builds `$BUILD_ALL_BATCH` (4) combos then stops (fits the 4-hour limit), recording finished ones in `sf-build-progress.log` (gitignored, lives next to the script). Re-running menu 6 resumes from there; menu 7 shows progress. To force-rebuild one combo regardless of progress, use the normal menu 1+2 with that arch/sdk — Build All's tracking doesn't touch it. Variant selection per arch (matching `MAKE_LITEGAPPS()`): arm64 SDK ≤28 → core+lite, SDK ≥29 → pixel+lite+superlite. |
+| `sf-build.sh` menu 6 "Build All" | Resumable batch build: loops arm64 (SDK 37→24), running `UNZIP_FILE_SERVER`→`UNZIP_GAPPS`→`MAKE_ADDON`→`MAKE_LITEGAPPS` per combo. Builds `$BUILD_ALL_BATCH` (4) combos then stops (fits the 4-hour limit), recording finished ones in `sf-build-progress.log` (gitignored, lives next to the script). Re-running menu 6 resumes from there; menu 7 shows progress. To force-rebuild one combo regardless of progress, use the normal menu 1+2 with that arch/sdk — Build All's tracking doesn't touch it. Variant selection per arch (matching `MAKE_LITEGAPPS()`): SDK ≤25 → lite only, SDK ≥26 → pixel+basic+awe+lite. |
 | `bin/` | Per-arch host binaries (`arm64`: zip, tar, xz, brotli, toybox) + `zipsigner.jar`. Downloaded by restore, gitignored. |
 
 ## config (top-level) — key fields
@@ -76,11 +76,10 @@ Two optional keys change what gets fetched for a specific variant (`lib/litegapp
 - `restore.suffix=-lite` — fetch `<sdk><suffix>.zip` instead, e.g. `37-lite.zip`
   (this is what `lite` uses — SourceForge hosts a separate trimmed zip for it,
   confirmed against `files-server/litegapps/arm64/37/{37.zip,37-lite.zip}`).
-- `restore.filename=superlite` — fetch a **fixed** name ignoring the sdk, e.g.
-  `superlite.zip` in the same `<arch>/<sdk>/` dir (used by the `superlite`
-  variant, which restores the original gapps release from when that Android
-  version first shipped — the zip must be uploaded to SourceForge at
-  `files-server/litegapps/<arch>/<sdk>/superlite.zip`).
+- `restore.filename=<name>` — fetch a **fixed** name ignoring the sdk, e.g.
+  `<name>.zip` in the same `<arch>/<sdk>/` dir. No variant uses it now
+  (superlite was removed); it stays available for a variant that needs one
+  fixed gapps release.
 - If neither is set, or the named/suffixed zip is missing on the server, it
   falls back to the plain `<sdk>.zip`.
 - `restore.filename` wins over `restore.suffix` if both are set.

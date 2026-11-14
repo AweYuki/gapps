@@ -64,131 +64,6 @@ PIXEL () {
 	
 	}
 	
-MICRO (){
-	local variant=micro
-	local list="
-	AndroidAuto
-Arcore
-SettingsIntelligenceGoogle
-DeskClockGoogle
-SoundPicker
-Chrome
-Gmail
-Files
-GoogleAssistant
-GoogleCalculator
-GoogleCalendar
-GoogleContacts
-GoogleDialer
-GoogleKeyboard
-GoogleTTS
-LocationHistory
-MarkupGoogle
-Messaging
-PixelLauncher
-PixelLiveWallpaper
-SoundPicker
-Talkback
-Turbo
-Velvet
-GoogleSearch
-WallpaperPicker
-Wellbeing
-	"
-	
-	local IN=$BASED/packages/output/$ARCH/$SDK/
-	local OUT=$BASED/core/litegapps/micro/modules/$ARCH/$SDK/
-	rm -rf $OUT
-	CORE_MODULE $BASED/packages/output/$ARCH/$SDK/core $BASED/core/litegapps/micro/modules/$ARCH/$SDK/core
-	
-	for M in $(ls -1 $BASED/packages/output/$ARCH/$SDK/gapps) ; do
-	for M1 in $list; do
-	local check=false
-	if [ $M = $M1 ]; then
-	local check=true
-	break
-	fi
-	done
-	
-	if $check; then
-	echo "+ Copying <$BASED/packages/output/$ARCH/$SDK/gapps/$M> To <$BASED/core/litegapps/micro/modules/$ARCH/$SDK/gapps/>"
-	
-	mkdir -p $BASED/core/litegapps/micro/modules/$ARCH/$SDK/gapps/$M
-	cp -rdf $BASED/packages/output/$ARCH/$SDK/gapps/$M $BASED/core/litegapps/micro/modules/$ARCH/$SDK/gapps/
-	else
-	echo "! Skipping $M"
-	fi
-	done
-	
-	
-	bash $BASED/build.sh make litegapps $variant $ARCH $SDK
-	[ ! -d $RELEASE/$variant ] && mkdir -p $RELEASE/$variant
-	RIN=$BASED/output/litegapps/$ARCH/$SDK/$variant 
-	ROUT=$RELEASE/$variant
-	for U in $(ls -1 $RIN); do
-	echo "- Release <$RIN/$U> to <$ROUT>"
-	cp -rdf $RIN/$U $ROUT/
-	rm -rf $RIN/$U
-	done
-	}
-NANO (){
-	local variant=nano
-	local list="
-	AndroidAuto
-Arcore
-DeskClockGoogle
-DevicePolicy
-DreamLiner
-Gmail
-GoogleAssistant
-GoogleCalculator
-GoogleCalendar
-GoogleContacts
-GoogleDialer
-GoogleKeyboard
-LocationHistory
-MarkupGoogle
-Messaging
-PlayGames
-SoundPicker
-WallpaperPicker
-Wellbeing
-	"
-	
-	local IN=$BASED/packages/output/$ARCH/$SDK/
-	local OUT=$BASED/core/litegapps/nano/modules/$ARCH/$SDK/
-	rm -rf $OUT
-	CORE_MODULE $BASED/packages/output/$ARCH/$SDK/core $BASED/core/litegapps/nano/modules/$ARCH/$SDK/core
-	
-	for M in $(ls -1 $BASED/packages/output/$ARCH/$SDK/gapps) ; do
-	for M1 in $list; do
-	local check=false
-	if [ $M = $M1 ]; then
-	local check=true
-	break
-	fi
-	done
-	
-	if $check; then
-	echo "+ Copying <$BASED/packages/output/$ARCH/$SDK/gapps/$M> To <$BASED/core/litegapps/nano/modules/$ARCH/$SDK/gapps/>"
-	
-	mkdir -p $BASED/core/litegapps/nano/modules/$ARCH/$SDK/gapps/$M
-	cp -rdf $BASED/packages/output/$ARCH/$SDK/gapps/$M $BASED/core/litegapps/nano/modules/$ARCH/$SDK/gapps/
-	else
-	echo "! Skipping $M"
-	fi
-	done
-	
-	bash $BASED/build.sh make litegapps $variant $ARCH $SDK
-	[ ! -d $RELEASE/$variant ] && mkdir -p $RELEASE/$variant
-	RIN=$BASED/output/litegapps/$ARCH/$SDK/$variant 
-	ROUT=$RELEASE/$variant
-	for U in $(ls -1 $RIN); do
-	echo "- Release <$RIN/$U> to <$ROUT>"
-	cp -rdf $RIN/$U $ROUT/
-	rm -rf $RIN/$U
-	done
-	}
 BASIC (){
 	local variant=basic
 	local list="
@@ -237,132 +112,8 @@ BASIC (){
 	rm -rf $RIN/$U
 	done
 	}
-USER (){
-	local variant=user
-	local list="
-	Chrome
-GoogleKeyboard
-PixelLauncher
-PixelLiveWallpaper
-Gmail
-
-	"
 	
-	local IN=$BASED/packages/output/$ARCH/$SDK/
-	local OUT=$BASED/core/litegapps/user/modules/$ARCH/$SDK/
-	rm -rf $OUT
-	CORE_MODULE $BASED/packages/output/$ARCH/$SDK/core $BASED/core/litegapps/user/modules/$ARCH/$SDK/core
 	
-	for M in $(ls -1 $BASED/packages/output/$ARCH/$SDK/gapps) ; do
-	for M1 in $list; do
-	local check=false
-	if [ $M = $M1 ]; then
-	local check=true
-	break
-	fi
-	done
-	
-	if $check; then
-	echo "+ Copying <$BASED/packages/output/$ARCH/$SDK/gapps/$M> To <$BASED/core/litegapps/user/modules/$ARCH/$SDK/gapps/>"
-	
-	mkdir -p $BASED/core/litegapps/user/modules/$ARCH/$SDK/gapps/$M
-	cp -rdf $BASED/packages/output/$ARCH/$SDK/gapps/$M $BASED/core/litegapps/user/modules/$ARCH/$SDK/gapps/
-	else
-	echo "! Skipping $M"
-	fi
-	done
-	
-	bash $BASED/build.sh make litegapps $variant $ARCH $SDK
-	[ ! -d $RELEASE/$variant ] && mkdir -p $RELEASE/$variant
-	RIN=$BASED/output/litegapps/$ARCH/$SDK/$variant 
-	ROUT=$RELEASE/$variant
-	for U in $(ls -1 $RIN); do
-	echo "- Release <$RIN/$U> to <$ROUT>"
-	cp -rdf $RIN/$U $ROUT/
-	rm -rf $RIN/$U
-	done
-	}
-	
-GO (){
-	local variant=go
-	# Google's Go apps only exist for arm64 Android 10 (SDK 29) and up.
-	if [ "$ARCH" != arm64 ] || [ "$SDK" -lt 29 ]; then
-		echo "! [SKIP] go is only built for arm64 Android 10 (SDK 29) and up, not <$ARCH $SDK>"
-		return 0
-	fi
-	local list="
-	AssistantGo
-GalleryGo
-GmailGo
-MapsGo
-NavigationGo
-VelvetGo
-	"
-	
-	local IN=$BASED/packages/output/$ARCH/$SDK/
-	local OUT=$BASED/core/litegapps/go/modules/$ARCH/$SDK/
-	rm -rf $OUT
-	CORE_MODULE $BASED/packages/output/$ARCH/$SDK/core $BASED/core/litegapps/go/modules/$ARCH/$SDK/core
-	
-	for M in $(ls -1 $BASED/packages/output/$ARCH/$SDK/go) ; do
-	for M1 in $list; do
-	local check=false
-	if [ $M = $M1 ]; then
-	local check=true
-	break
-	fi
-	done
-	
-	if $check; then
-	echo "+ Copying <$BASED/packages/output/$ARCH/$SDK/go/$M> To <$BASED/core/litegapps/go/modules/$ARCH/$SDK/go/>"
-	
-	mkdir -p $BASED/core/litegapps/go/modules/$ARCH/$SDK/go/$M
-	cp -rdf $BASED/packages/output/$ARCH/$SDK/go/$M $BASED/core/litegapps/go/modules/$ARCH/$SDK/go
-	else
-	echo "! Skipping $M"
-	fi
-	done
-	
-	bash $BASED/build.sh make litegapps $variant $ARCH $SDK
-	[ ! -d $RELEASE/$variant ] && mkdir -p $RELEASE/$variant
-	RIN=$BASED/output/litegapps/$ARCH/$SDK/$variant 
-	ROUT=$RELEASE/$variant
-	for U in $(ls -1 $RIN); do
-	echo "- Release <$RIN/$U> to <$ROUT>"
-	cp -rdf $RIN/$U $ROUT/
-	rm -rf $RIN/$U
-	done
-	}
-	
-CORE (){
-	local variant=core
-	local list="
-	AndroidAuto
-	Arcore
-	DevicePolicy
-	Gmail
-	LocationHistory
-	MarkupGoogle
-	PlayGames
-	SoundPicker
-	Wellbeing
-	"
-	
-	local IN=$BASED/packages/output/$ARCH/$SDK/
-	local OUT=$BASED/core/litegapps/core/modules/$ARCH/$SDK/
-	rm -rf $OUT
-	CORE_MODULE $BASED/packages/output/$ARCH/$SDK/core $BASED/core/litegapps/core/modules/$ARCH/$SDK/core
-	
-	bash $BASED/build.sh make litegapps $variant $ARCH $SDK
-	[ ! -d $RELEASE/$variant ] && mkdir -p $RELEASE/$variant
-	RIN=$BASED/output/litegapps/$ARCH/$SDK/$variant 
-	ROUT=$RELEASE/$variant
-	for U in $(ls -1 $RIN); do
-	echo "- Release <$RIN/$U> to <$ROUT>"
-	cp -rdf $RIN/$U $ROUT/
-	rm -rf $RIN/$U
-	done
-	}
 	
 	
 	
@@ -383,29 +134,51 @@ LITE (){
 	done
 	}
 
-SUPERLITE (){
-	local variant=superlite
-	# superlite is only released for arm64 Android 10 (SDK 29) and up.
-	if [ "$ARCH" != arm64 ] || [ "$SDK" -lt 29 ]; then
-		echo "! [SKIP] superlite is only built for arm64 Android 10 (SDK 29) and up, not <$ARCH $SDK>"
-		return 0
-	fi
+	
+	
+AWE (){
+	local variant=awe
+	local list="
+	Chrome
+	GoogleKeyboard
+	SoundPicker
+	"
 
 	local IN=$BASED/packages/output/$ARCH/$SDK/
-	local OUT=$BASED/core/litegapps/superlite/modules/$ARCH/$SDK/
+	local OUT=$BASED/core/litegapps/awe/modules/$ARCH/$SDK/
 	rm -rf $OUT
+	CORE_MODULE $BASED/packages/output/$ARCH/$SDK/core $BASED/core/litegapps/awe/modules/$ARCH/$SDK/core
+
+	for M in $(ls -1 $BASED/packages/output/$ARCH/$SDK/gapps) ; do
+	for M1 in $list; do
+	local check=false
+	if [ $M = $M1 ]; then
+	local check=true
+	break
+	fi
+	done
+
+	if $check; then
+	echo "+ Copying <$BASED/packages/output/$ARCH/$SDK/gapps/$M> To <$BASED/core/litegapps/awe/modules/$ARCH/$SDK/gapps/>"
+
+	mkdir -p $BASED/core/litegapps/awe/modules/$ARCH/$SDK/gapps/$M
+	cp -rdf $BASED/packages/output/$ARCH/$SDK/gapps/$M $BASED/core/litegapps/awe/modules/$ARCH/$SDK/gapps/
+	else
+	echo "! Skipping $M"
+	fi
+	done
+
 	bash $BASED/build.sh make litegapps $variant $ARCH $SDK
 	[ ! -d $RELEASE/$variant ] && mkdir -p $RELEASE/$variant
 	RIN=$BASED/output/litegapps/$ARCH/$SDK/$variant
 	ROUT=$RELEASE/$variant
 	for U in $(ls -1 $RIN); do
-		echo "- Release <$RIN/$U> to <$ROUT>"
-		cp -rdf $RIN/$U $ROUT/
-		rm -rf $RIN/$U
+	echo "- Release <$RIN/$U> to <$ROUT>"
+	cp -rdf $RIN/$U $ROUT/
+	rm -rf $RIN/$U
 	done
 	}
-	
-	
+
 MAKE_ADDON(){
 	bash $BASED/packages/make make $ARCH $SDK
 	ADDON_RELEASE=/home/frs/project/litegapps/addon/$ARCH/$SDK/
@@ -432,16 +205,16 @@ MAKE_LITEGAPPS(){
 	
 	case $ARCH in
 	arm64)
-	if [ $SDK -le 28 ]; then
-	# Android 9.0 (Pie) and below - core+lite only
-	CORE
+	if [ $SDK -le 25 ]; then
+	# The addon source only exists from SDK 26 on, so only lite (which
+	# needs no addon) is built below that.
 	LITE
-	elif [ $SDK -ge 29 ]; then
-	# Android 10 (SDK 29) and up - pixel+lite, plus superlite (old, fixed
-	# base gapps release only makes sense from here onward)
+	else
+	# Android 8.0 (SDK 26) and up - every variant needs the addon.
 	PIXEL
+	BASIC
+	AWE
 	LITE
-	SUPERLITE
 	fi
 	;;
 	*)
@@ -480,8 +253,7 @@ UNZIP_FILE_SERVER(){
 UNZIP_GAPPS(){
 	local input=$HOMEE/files-server/litegapps/$ARCH/$SDK/${SDK}.zip
 	local input_lite=$HOMEE/files-server/litegapps/$ARCH/$SDK/${SDK}-lite.zip
-	local input_superlite=$HOMEE/files-server/litegapps/$ARCH/$SDK/superlite.zip
-	for ON in lite core nano user go pixel micro basic superlite; do
+	for ON in lite pixel basic awe; do
 		local output=$HOMEE/build/litegapps/core/litegapps/$ON/gapps/$ARCH/$SDK/
 		rm -rf $output
 		mkdir -p $output
@@ -491,15 +263,6 @@ UNZIP_GAPPS(){
 			unzip -o $input_lite -d $output >/dev/null
 
 			else
-			echo "- Extract <$input> to <$output>"
-			unzip -o $input -d $output >/dev/null
-			fi
-		elif [ $ON = superlite ]; then
-			if [ -f $input_superlite ]; then
-			echo "- Extract <$input_superlite> to <$output>"
-			unzip -o $input_superlite -d $output >/dev/null
-			else
-			echo "! <$input_superlite> not found - falling back to <$input>"
 			echo "- Extract <$input> to <$output>"
 			unzip -o $input -d $output >/dev/null
 			fi

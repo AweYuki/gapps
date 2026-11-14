@@ -166,11 +166,11 @@ for LIST_PROP in $(find * -name build.info -type f); do
 		fi
 		if [ -f $TMPM/module.prop ]; then
 			print "- Set module.prop"
-			sed -i 's/'"$(getp name $TMPM/module.prop)"'/'"LiteGapps Package ${NAME}"'/g' $TMPM/module.prop
-			sed -i 's/'"$(getp id $TMPM/module.prop)"'/'"LiteGappsPackage${ID}"'/g' $TMPM/module.prop
+			sed -i 's/'"$(getp name $TMPM/module.prop)"'/'"AweGapps Package ${NAME}"'/g' $TMPM/module.prop
+			sed -i 's/'"$(getp id $TMPM/module.prop)"'/'"AweGappsPackage${ID}"'/g' $TMPM/module.prop
 			sed -i 's/'"$(getp version $TMPM/module.prop)"'/'"v${VERSION}"'/g' $TMPM/module.prop
 			sed -i 's/'"$(getp versionCode $TMPM/module.prop)"'/'"$CODE"'/g' $TMPM/module.prop
-			sed -i 's/'"$(getp author $TMPM/module.prop)"'/'"The LiteGapps Project"'/g' $TMPM/module.prop
+			sed -i 's/'"$(getp author $TMPM/module.prop)"'/'"The AweGapps Project"'/g' $TMPM/module.prop
 			sed -i 's/'"$(getp date $TMPM/module.prop)"'/'"$(date +%d-%m-%Y)"'/g' $TMPM/module.prop
 			sed -i 's/'"$(getp android.arch $TMPM/module.prop)"'/'"$ARCH"'/g' $TMPM/module.prop
 			sed -i 's/'"$(getp android.sdk $TMPM/module.prop)"'/'"$SDK"'/g' $TMPM/module.prop
@@ -189,7 +189,7 @@ for LIST_PROP in $(find * -name build.info -type f); do
 			print "- Exec Using <$ZIP>"
 			cd $TMPM
 			DIRNAME_PROP=$(dirname $(dirname $LIST_PROP))
-			NAME_ZIP=$OUT/$ARCH/$SDK/$DIRNAME_PROP/${ID}/${ID}-LiteGapps-Addon-${ARCH}-$(get_android_version $SDK).zip
+			NAME_ZIP=$OUT/$ARCH/$SDK/$DIRNAME_PROP/${ID}/${ID}-AweGapps-Addon-${ARCH}-$(get_android_version $SDK).zip
 			test ! -d $(dirname $NAME_ZIP) && mkdir -p $(dirname $NAME_ZIP)
 			test -f $NAME_ZIP && rm -rf $NAME_ZIP
 			$ZIP -r9 $NAME_ZIP * >/dev/null

@@ -1,10 +1,9 @@
-name: Build & Release LiteGapps (All Variants)
+name: Build & Release AweGapps (All Variants)
 
-# Builds every listed litegapps variant (default: pixel through superlite)
+# Builds every listed litegapps variant (default: pixel, basic, awe, lite)
 # for one arch/sdk target and publishes the zips to GitHub Releases.
 #
-# Unlike build-release.yml (lite/superlite only, no addon needed), variants
-# here have modules=true (pixel/micro/nano/basic/user/go/core) and need the
+# Variants here have modules=true (pixel/basic/awe) and need the
 # packages/ addon tool. That is handled automatically now: lib/litegapps.sh's
 # _litegapps_build_addon()/_litegapps_prep_modules() build packages/make and
 # stage the result into core/litegapps/<variant>/modules/ on demand, so this
@@ -12,7 +11,7 @@ name: Build & Release LiteGapps (All Variants)
 # no SourceForge credentials, no vps-build.sh.
 #
 # To build your own version: fork, adjust the variant list/arch/sdk inputs
-# below (Actions tab -> "Build & Release LiteGapps (All Variants)" -> Run
+# below (Actions tab -> "Build & Release AweGapps (All Variants)" -> Run
 # workflow), or push a tag like "full-v1".
 
 on:
@@ -21,7 +20,7 @@ on:
       variants:
         description: "Comma-separated litegapps variants to build, in order"
         required: false
-        default: "pixel,micro,nano,basic,user,go,core,lite,superlite"
+        default: "pixel,basic,awe,lite"
       arch:
         description: "Architecture to build (arm64 only)"
         required: false
@@ -62,7 +61,7 @@ jobs:
         id: vars
         run: |
           VARIANTS="${{ inputs.variants }}"
-          [ -z "$VARIANTS" ] && VARIANTS="pixel,micro,nano,basic,user,go,core,lite,superlite"
+          [ -z "$VARIANTS" ] && VARIANTS="pixel,basic,awe,lite"
 
           ARCH="${{ inputs.arch }}"
           [ -z "$ARCH" ] && ARCH="arm64"
@@ -162,7 +161,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="${{ steps.vars.outputs.tag }}"
-          NOTES="Automated LiteGapps build - arch: ${{ steps.vars.outputs.arch }}, sdk: ${{ steps.vars.outputs.sdk }}, variants: ${{ steps.vars.outputs.variants }}"
+          NOTES="Automated AweGapps build - arch: ${{ steps.vars.outputs.arch }}, sdk: ${{ steps.vars.outputs.sdk }}, variants: ${{ steps.vars.outputs.variants }}"
           PRERELEASE_FLAG=""
           [ "${{ steps.vars.outputs.prerelease }}" = "true" ] && PRERELEASE_FLAG="--prerelease"
 

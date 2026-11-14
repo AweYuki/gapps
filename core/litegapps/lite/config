@@ -6,7 +6,9 @@ restore.sdk=35
 restore.arch=arm64
 # lite has its own trimmed gapps zip on the server: <sdk>-lite.zip (no extra apps)
 restore.suffix=-lite
-name=LiteGapps
+name=AweGapps
+maintainer=The AweGapps Project
+upstream=LiteGapps (The LiteGapps Project)
 dir_name=lite
 modules=false
-desc=litegapps is a google apps package that supports almost all arch and android versions while maintaining lightness, saving battery and more.
+desc=AweGapps is a Google Apps package that supports almost all arch and android versions while maintaining lightness, saving battery and more.

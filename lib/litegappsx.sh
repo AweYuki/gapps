@@ -83,6 +83,7 @@ make_flashable_litegappsx(){
 		SED "$(getp versionCode $MODULE_PROP)" "$PROP_VERSIONCODE" $MODULE_PROP
 		SED "$(getp date $MODULE_PROP)" "$(date +%d-%m-%Y)" $MODULE_PROP
 		SED "$(getp description $MODULE_PROP)" "$MODULE_DESC" $MODULE_PROP
+		SED "$(getp litegapps_variant $MODULE_PROP)" "$VARIANT" $MODULE_PROP
 		sed -i 's,'"$(getp updateJson $MODULE_PROP)"','"${MODULE_UPDATE}"',g' $MODULE_PROP
 
 		#set time stamp
@@ -110,12 +111,14 @@ _litegappsx_build_variant(){
 	printlog " "
 	[ -d $tmp ] && del $tmp && cdir $tmp || cdir $tmp
 	#copying gapps
-	if [ -d $BASED/gapps ]; then
+	if [ -d $BASED/gapps ] && [ -n "$(ls -A $BASED/gapps 2>/dev/null)" ]; then
 	cp -af $BASED/gapps/* $tmp/
 	else
-	printlog "[ERROR] <$BASED/gapps/> not found"
-	sleep 3s
-	return 1
+	# microg sources are optional: without them this variant is skipped
+	# instead of failing the whole make run.
+	printlog "[SKIP] <$BASED/gapps/> is empty - microG sources were not restored"
+	printlog "       Run: sh build.sh restore litegappsx microg"
+	return 0
 	fi
 	# litegapps system compress
 	if [ "$apk_compessed_type" = litegapps_compress ]; then
@@ -176,6 +179,46 @@ litegappsx_clean(){
 #################################################
 # restore body (moved from core/litegappsx/*/restore.sh)
 #################################################
+
+# microG components come from micro5k/microg-unofficial-installer:
+#   - the APKs are Apache-2.0 (microG Project Team)
+#   - the permission XMLs are CC0-1.0
+# None of that project's GPL-3.0 shell code is copied into this repo; the
+# download/layout logic below is this repo's own. The tree keeps the
+# cross_system/ + cross_sdk/<api>/ shape installer/customize.sh's
+# litegappsx() assembles per device.
+# The big APKs are stored in Git LFS, where raw.githubusercontent.com returns
+# the 134-byte pointer instead of the file; media.githubusercontent.com serves
+# the real bytes. Try the media endpoint first and fall back to raw.
+MICROG_MEDIA=https://media.githubusercontent.com/media/micro5k/microg-unofficial-installer/main/zip-content/origin
+MICROG_SRC=https://raw.githubusercontent.com/micro5k/microg-unofficial-installer/main/zip-content/origin
+MICROG_FILES="
+priv-app/GmsCore.apk|system/priv-app/GmsCore/GmsCore.apk
+priv-app/FakeStore.apk|system/priv-app/FakeStore/FakeStore.apk
+framework/com.google.android.maps.jar|system/framework/com.google.android.maps.jar
+etc/permissions/com.google.android.maps.xml|system/etc/permissions/com.google.android.maps.xml
+etc/permissions/privapp-permissions-GmsCore.xml|system/etc/permissions/privapp-permissions-GmsCore.xml
+etc/permissions/privapp-permissions-FakeStore.xml|system/etc/permissions/privapp-permissions-FakeStore.xml
+"
+
+# _microg_valid <file> <basename>: 0 when the download really is the payload
+# (not a Git LFS pointer, an HTML error page or a truncated file).
+_microg_valid(){
+	local f="$1" n="$2"
+	[ -s "$f" ] || return 1
+	head -c 64 "$f" | grep -q 'git-lfs' && return 1
+	case "$n" in
+		*.apk|*.jar)
+			# a real APK/JAR is a zip and far bigger than any error page
+			[ "$(wc -c < "$f")" -ge 1024 ] || return 1
+			[ "$(head -c 2 "$f")" = "PK" ] || return 1 ;;
+		*.xml)
+			# permission XMLs are tiny, so check their content instead
+			grep -qE '<(permissions|exceptions)' "$f" || return 1 ;;
+	esac
+	return 0
+}
+
 _litegappsx_restore_variant(){
 GAPPS_FILES=$BASED/files
 GAPPS=$BASED/gapps
@@ -185,44 +228,67 @@ for i in $GAPPS $GAPPS_FILES $MODULES $MODULES_FILES; do
 	[ ! -d $i ] && cdir $i
 done
 printlog " "
-printlog "        Litegapps++ MicroG restore"
+printlog "        AweGappsX MicroG restore"
 printlog " "
-for WAHYU in sdk cross_system arch; do
-	if [ -f $GAPPS_FILES/$WAHYU.zip ]; then
-		printlog "1. Available : $WAHYU.zip"
-		printlog "    Size zip : $(du -sh $GAPPS_FILES/$WAHYU.zip | cut -f1)"
-		unzip -o $GAPPS_FILES/$WAHYU.zip -d $GAPPS >/dev/null 2>&1
-		if [ $? -eq 0 ]; then
-		printlog "    Extract status : Successful"
-		else
-		printlog "    Extract status : Failed"
-		printlog "    REMOVING FILES"
-		del $GAPPS_FILES/$WAHYU.zip
-		exit 1
-		fi
-	else
-		printlog "1. Downloading : $WAHYU.zip"
-       curl -L -o $GAPPS_FILES/$WAHYU.zip https://gitlab.com/litegapps/litegapps-server/-/raw/main/litegapps++/microg/$WAHYU.zip >/dev/null 2>&1
-       if [  $? -eq 0 ]; then
-       	printlog "     Downloading status : Successful"
-       	printlog "     File size : $(du -sh $GAPPS_FILES/$WAHYU.zip | cut -f1)"
-       else
-       	printlog "     Downloading status : Failed"
-       	printlog "     ! PLEASE CEK YOUR INTERNET CONNECTION AND RESTORE AGAIN"
-       	del $GAPPS_FILES/$WAHYU.zip
-       	exit 1
-       fi
-       unzip -o $GAPPS_FILES/$WAHYU.zip -d $GAPPS >/dev/null 2>&1
-       if [ $? -eq 0 ]; then
-       	printlog "     Unzip : $GAPPS_FILES/$WAHYU.zip"
-       	printlog "     unzip status : Successful"
-       else
-       	printlog "     Unzip : $GAPPS_FILES/$WAHYU.zip"
-       	printlog "     unzip status : Failed"
-       	printlog "     REMOVING FILES"
-       	del $GAPPS_FILES/$WAHYU.zip
-       	exit 1
-       fi
+
+del "$GAPPS/cross_system"
+cdir "$GAPPS/cross_system"
+NUM_6070=0
+FAILED=0
+for I in $MICROG_FILES; do
+	NUM_6070=$((NUM_6070 + 1))
+	D_SRC=${I%%|*}
+	D_DST=${I#*|}
+	D_NAME=$(basename "$D_SRC")
+	D_CACHE=$GAPPS_FILES/microg/$D_NAME
+	[ ! -d "$GAPPS_FILES/microg" ] && cdir "$GAPPS_FILES/microg"
+	printlog "$NUM_6070. $D_NAME"
+	# a Git LFS pointer or an error page must never be reused from the cache
+	if [ -s "$D_CACHE" ] && ! _microg_valid "$D_CACHE" "$D_NAME"; then
+		printlog "     Cached copy is invalid, downloading again"
+		del "$D_CACHE"
 	fi
+	if [ ! -s "$D_CACHE" ]; then
+		if ! curl -fL -o "$D_CACHE.part" "$MICROG_MEDIA/$D_SRC" 2>/dev/null \
+			|| ! _microg_valid "$D_CACHE.part" "$D_NAME"; then
+			del "$D_CACHE.part"
+			# -f so an error page is never saved as the file
+			if ! curl -fL -o "$D_CACHE.part" "$MICROG_SRC/$D_SRC" 2>/dev/null \
+				|| ! _microg_valid "$D_CACHE.part" "$D_NAME"; then
+				printlog "     Download status : Failed"
+				del "$D_CACHE.part"
+				FAILED=$((FAILED + 1))
+				continue
+			fi
+		fi
+		mv -f "$D_CACHE.part" "$D_CACHE"
+		printlog "     Download status : Successful ($(du -sh "$D_CACHE" | cut -f1))"
+	else
+		printlog "     Cached : $(du -sh "$D_CACHE" | cut -f1)"
+	fi
+	# the destination path is relative to the cross_system root
+	D_OUT="$GAPPS/cross_system/$D_DST"
+	cdir "$(dirname "$D_OUT")"
+	cp -pf "$D_CACHE" "$D_OUT"
 done
+
+if [ "$FAILED" -gt 0 ]; then
+	printlog " "
+	printlog "[FAIL] $FAILED microG file(s) could not be downloaded"
+	printlog "       Source: $MICROG_SRC"
+	printlog "       Drop the files by hand into <$GAPPS_FILES/microg/> and restore again."
+	del "$GAPPS/cross_system"
+	return 0
+fi
+
+# customize.sh needs a cross_sdk/<api> entry for every Android version the
+# zip installs on; the common files live in cross_system, so these only hold
+# a marker and keep the archive small.
+for API_MG in 24 25 26 27 28 29 30 31 32 33 34 35 36 37; do
+	cdir "$GAPPS/cross_sdk/$API_MG/system"
+	echo "microG common files live in cross_system" > "$GAPPS/cross_sdk/$API_MG/system/.microg-common"
+done
+
+printlog " "
+printlog "- Restore status : Successful"
 }

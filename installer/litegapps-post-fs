@@ -13,7 +13,8 @@ rm -rf $log
 mkdir -p $(dirname $log)
 
 echo " " >> $log
-echo "LiteGapps Post Fs" >> $log
+echo "AweGapps Post Fs" >> $log
+echo "Project=AweGapps (fork of LiteGapps)" >> $log
 echo "Version=$litegapps_post_fs_version" >> $log
 echo "VersionCode=$litegapps_post_fs_code=1" >> $log
 echo "Started -> $(date '+%d/%m/%Y %H:%M:%S')" >> $log

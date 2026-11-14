@@ -1,11 +1,11 @@
 #!/system/bin/sh
-#LiteGapps Controller
-#by wahyu6070 @xda-developers
+# AweGapps Controller, based on the LiteGapps controller
+# Original controller by wahyu6070 @xda-developers
 #since 08-07-2019
 #License GPL3+
 #if you copy some code here please permission to the owner
 #
-NAME=LiteGapps
+NAME=AweGapps
 ABOUT_LINK=https://litegapps.github.io/doc/litegapps_controller.html
 propversion=v1.2
 propcode=12

@@ -32,3 +32,11 @@ are subject of Google's terms and conditions, these can be found at http://www.g
 GNU Tar is subject to the GPLv3+, its license can be found at https://www.gnu.org/licenses/gpl.html
 
 XZdec is in the public domain. The source code and license can be found at http://tukaani.org/xz/
+
+The AweGappsX (microG) build includes components of the microG Project:
+  GmsCore.apk, FakeStore.apk - Copyright (C) 2013 microG Project Team, Apache-2.0
+  (https://www.apache.org/licenses/LICENSE-2.0)
+  Permission XMLs (privapp-permissions-*.xml, com.google.android.maps.xml) -
+  SPDX-License-Identifier: CC0-1.0
+They are redistributed unmodified from https://github.com/micro5k/microg-unofficial-installer,
+whose own installer code is GPL-3.0-or-later and is not included here.
