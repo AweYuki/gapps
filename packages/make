@@ -430,36 +430,6 @@ CLEAN(){
 	exit 0
 	}
 	
-UPLOAD(){
-	[ -t 1 ] && clear  # only on a terminal (a redirected job log has no TERM)
-	print
-	printmid "Cheking package"
-	print
-	for W in sftp scp; do
-		if $(command -v $W >/dev/null); then
-			print "Executable <$W> <$(command -v $W)> [OK]"
-		else
-			print "Executable <$W> [ERROR] not found"
-			exit 1
-		fi
-	done
-	print " "
-	print " Total Size file upload : $(du -sh $OUT)"
-	print " Server : Sourceforge"
-	echo -n " Username : "
-	read USERNAME
-	local SERVER=/home/frs/project/litegapps/addon
-	cd $OUT
-	for Y in $(find * -type f); do
-		local FUPLOAD=$Y
-		local SUPLOAD=$SERVER/$Y
-		NUM=$(((NUM+1)))
-		print "${NUM}."
-		print " File : $Y"
-		print " To   : $SUPLOAD"
-		scp $FUPLOAD $USERNAME@web.sourceforge.net:$SUPLOAD
-	done
-	}
 zip_make(){
 	[ -t 1 ] && clear  # only on a terminal (a redirected job log has no TERM)
 	print
@@ -484,37 +454,6 @@ zip_make(){
 	done
 	
 	}
-zip_upload(){
-	[ -t 1 ] && clear  # only on a terminal (a redirected job log has no TERM)
-	print
-	printmid "Upload ZIP to sourceforge"
-	print
-	for W in sftp scp; do
-		if $(command -v $W >/dev/null); then
-			print "Executable <$W> <$(command -v $W)> [OK]"
-		else
-			print "Executable <$W> [ERROR] not found"
-			exit 1
-		fi
-	done
-
-	print " "
-	print " Total Size file upload : $(du -sh $BASED/zip-server)"
-	print " Server : Sourceforge"
-	echo -n " Username : "
-	read USERNAME
-	local SERVER=/home/frs/project/litegapps/files-server/package
-	cd $BASED/zip-server
-	for Y in $(find * -name *zip -type f); do
-		local FUPLOAD=$Y
-		local SUPLOAD=$SERVER/$Y
-		NUM=$(((NUM+1)))
-		print "${NUM}."
-		print " File : $Y"
-		print " To   : $SUPLOAD"
-		scp $FUPLOAD $USERNAME@web.sourceforge.net:$SUPLOAD
-	done
-	}
 ######
 BASED="`dirname $(readlink -f "$0")`"
 OUT=$BASED/output
@@ -538,17 +477,11 @@ RESTORE
 c | clear | clean)
 CLEAN
 ;;
-u | upload )
-UPLOAD
-;;
 c | check)
 CHECK
 ;;
 make | m )
 MAKE
-;;
-zip-upload)
-zip_upload
 ;;
 zip-make)
 zip_make
@@ -562,9 +495,7 @@ print " restore         restoring files"
 print " make            building package"
 print " clean           clean files"
 print " check           check confict"
-print " upload          upload packages"
 print " zip-make        make zip files"
-print " zip-upload      upload zip files"
 print " "
 ;;
 esac

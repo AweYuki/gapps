@@ -38,15 +38,13 @@ git clone git@github.com:AweYuki/gapps.git
 
 | Path | What it is |
 |---|---|
-| `build.sh` | CLI + dispatcher (`restore`/`make`/`clean`/`upload`/`update-gapps-server`). |
+| `build.sh` | CLI + dispatcher (`restore`/`make`/`clean`). |
 | `lib/litegapps.sh`, `lib/litegappsx.sh` | Per-product build logic (restore/make/clean). Builds `packages/` addons and stages modules automatically for variants with `modules=true`. |
 | `installer/` | Flashable-zip installer payload (Kopi installer, `customize.sh`, `action.sh`, `module.prop`, ...). |
 | `config` | Top-level build config — see [Configure](#configure). |
-| `core/litegapps/<variant>/` | One dir per variant: `lite pixel basic awe`. Each has its own `config`, and (after restore) `gapps/`, `files/`, `modules/`. `awe` is this fork's own package; its app list is the `awe` case of `_litegapps_module_whitelist()` in `lib/litegapps.sh` (override with `LG_PKGS_AWE`). |
+| `core/litegapps/<variant>/` | One dir per variant: `lite awe`. Each has its own `config`, and (after restore) `gapps/`, `files/`, `modules/`. `awe` is this fork's own package; its app list is the `awe` case of `_litegapps_module_whitelist()` in `lib/litegapps.sh` (override with `LG_PKGS_AWE`). |
 | `core/litegappsx/microg/` | The `litegappsx` product — a microG-based build, enabled with `litegappsx.build=true` in `config`. |
-| `packages/` | Addon/apk packaging tool used by variants with `modules=true` (pixel, basic, awe). See `packages/README.md`. |
-| `vps-build.sh` | Unattended multi-arch/sdk build + upload for a self-hosted VPS (no time limit). See [VPS / unattended builds](#vps--unattended-builds). |
-| `sf-build.sh` | Legacy interactive build script for internal/maintainer use on the SourceForge build VPS. |
+| `packages/` | Addon/apk packaging tool used by variants with `modules=true` (awe). See `packages/README.md`. |
 | `.github/workflows/` | Build & publish AweGapps to **your fork's** GitHub Releases via Actions — no VPS needed. See [Building via GitHub Actions](#building-via-github-actions). |
 
 ## Configure
@@ -67,7 +65,7 @@ zip.level=1                  # 1-9
 zip.signer=false             # true/false
 
 litegapps.build=true
-litegapps.restore=lite       # comma-separated: lite,pixel,basic,awe
+litegapps.restore=lite       # comma-separated: lite,awe
 litegapps.type=lite          # comma-separated, same list
 litegapps.tar=single         # single or multi - reuse one files.tar across variants sharing gapps
 
@@ -119,7 +117,7 @@ Reset the tree (removes downloads, output, logs):
 sh build.sh clean
 ```
 
-Variants with `modules=true` (pixel, basic, awe) also
+Variants with `modules=true` (awe) also
 need addon packages — `build.sh make` builds and stages those automatically
 via `packages/make`, no extra step required.
 
@@ -136,9 +134,8 @@ download server and still install.
 Only arm64 is built: arm (armeabi-v7a), x86 and x86_64 are no longer built at
 all, so no source is restored and no zip is made for them. The rule lives in
 `arch_supported()` / `target_supported()` in `build.sh` (copied into the
-standalone `packages/make`) and is applied in `sf-build.sh`, `vps-build.sh`
-and both GitHub workflows. Releases already published for those
-architectures stay on the server, and still install.
+standalone `packages/make`) and is applied in both GitHub workflows.
+Releases already published for those architectures still install.
 
 ## Building via GitHub Actions
 
@@ -146,8 +143,8 @@ Fork this repo and use the workflows under `.github/workflows/` to build and
 publish straight to **your fork's** GitHub Releases — no SourceForge account,
 SSH key, or VPS required:
 
-- **`build-release-full.yml`** — builds every variant (`pixel`, `basic`,
-  `awe`, `lite` by default) for one arch/sdk target, including the `packages/`
+- **`build-release-full.yml`** — builds every variant (`awe`, `lite` by
+  default) for one arch/sdk target, including the `packages/`
   addon build. Restores/builds/cleans one variant at a time so the runner's
   disk never has to hold all of them at once. Configure `variants`/`arch`/`sdk`
   as workflow inputs, or push a tag like `full-v1`.
@@ -157,31 +154,6 @@ SSH key, or VPS required:
   or push a tag like `lite-v1`.
 
 Both use the built-in `GITHUB_TOKEN`, so no secrets need to be configured.
-
-## VPS / unattended builds
-
-For building all arch/sdk targets and uploading to SourceForge yourself,
-`vps-build.sh` runs unattended on your own VPS with no time limit:
-
-```bash
-cp .env.example .env   # set SF_USER (SourceForge login), ARCH_LIST, SDK_LIST
-bash vps-build.sh
-```
-
-It loops every arch × sdk, restoring sources, building addons + every
-variant, uploading to SourceForge via scp, and deleting sources/output
-before the next target (low-memory friendly). Run it detached so it
-survives SSH logout:
-
-```bash
-# Docker
-docker compose up -d --build
-# or tmux/nohup
-nohup bash vps-build.sh > vps.log 2>&1 &
-```
-
-See `Dockerfile` / `docker-compose.yml` for the containerized setup (SSH
-keys go in `docker/ssh/`, gitignored).
 
 ## Compression benchmark
 

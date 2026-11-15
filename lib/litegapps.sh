@@ -16,10 +16,8 @@ read_config(){ getp "$1" "$BASED/config"; }
 
 #################################################
 # Package/addon build + module prep, for variants with modules=true
-# (pixel, basic, awe). Mirrors PIXEL()/BASIC()/AWE() in sf-build.sh and
-# prep_modules()/core_module()/copy_whitelist() in vps-build.sh, but lives
-# here so `build.sh make litegapps <variant>` is self-contained - no external
-# script needed to stage modules first.
+# (awe). Lives here so `build.sh make litegapps <variant>` is
+# self-contained - no external script needed to stage modules first.
 #################################################
 
 # Package names are directory names in the addon output; anything else in an
@@ -63,18 +61,14 @@ _litegapps_core_module(){
 _litegapps_module_whitelist(){
 	local override
 	case "$1" in
-		basic) override="${LG_PKGS_BASIC:-}" ;;
-		awe)   override="${LG_PKGS_AWE:-}" ;;
-		*)     override="" ;;
+		awe) override="${LG_PKGS_AWE:-}" ;;
+		*)   override="" ;;
 	esac
 	if [ -n "$override" ]; then
 		_litegapps_clean_pkgs "$override"
 		return 0
 	fi
 	case "$1" in
-	basic) echo "
-AndroidAuto Arcore DevicePolicy GoogleDialer GoogleContacts LocationHistory
-MarkupGoogle SoundPicker Wellbeing" ;;
 	awe) echo "
 Chrome GoogleKeyboard SoundPicker" ;;
 	esac
@@ -134,10 +128,7 @@ _litegapps_prep_modules(){
 	local mout="$base/core/litegapps/$variant/modules/$P_ARCH/$P_SDK"
 	rm -rf "$mout"
 	case "$variant" in
-	pixel)
-		_litegapps_core_module "$psrc/core" "$mout/core"
-		[ -d "$psrc/gapps" ] && cp -rdf "$psrc/gapps" "$mout/" ;;
-	basic | awe)
+	awe)
 		_litegapps_core_module "$psrc/core" "$mout/core"
 		_litegapps_copy_whitelist "$variant" "$psrc/gapps" "$mout/gapps" ;;
 	esac
@@ -325,7 +316,7 @@ _litegapps_build_variant(){
 				continue
 			fi
 
-			# This function is used to create a single .tar file for many variants, speeding up builds of pixel, basic, awe and lite.
+			# This function is used to create a single .tar file for many variants, speeding up builds of awe and lite.
 			if [ $(get_config litegapps.tar) = "multi" ] && [ ! -f $tmpfiles/files.tar.$(get_config compression) ]; then
 			printlog "- make archive files.tar <multi config is active>"
 			make_tar_arch

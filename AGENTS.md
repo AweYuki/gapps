@@ -8,8 +8,7 @@ rules that are easy to get wrong.
 
 The AweGapps build tool (forked from LiteGapps): POSIX shell (`build.sh`, `lib/`, `packages/`) that
 packages Google Apps into flashable zips. There is no web panel and no service
-component - everything is run from a terminal, `vps-build.sh`, `sf-build.sh`
-or a GitHub workflow.
+component - builds run from a terminal (`build.sh`) or a GitHub workflow.
 
 ## Hard rules
 
@@ -20,27 +19,25 @@ or a GitHub workflow.
 - **Never commit secrets**: `.env`, ssh keys, passwords, database dumps.
   `git check-ignore -v <path>` before assuming a new file is tracked.
 - **Commit and push only when the user asks.**
-- **Do not run `upload` / `update-gapps-server`** unless explicitly asked; they
-  publish to the release server.
 - The repo `config` is a neutral default (`name.builder=yourname`,
   `build.status=unofficial`). A maintainer's identity is set for a release run
   through the environment (`LG_CFG_*`); never commit it back into `config`.
 - Android 7.0 (SDK 24) is the oldest target (`MIN_SDK`); Android 5.0-6.0
   (SDK 21-23) were dropped. Do not add them back.
-- Only four variants exist: `pixel`, `basic`, `awe`, `lite`. core, go, micro,
-  nano, user and superlite were removed; do not add them back.
-- They restore two gapps bases: `<sdk>.zip` (pixel, basic, awe) and
-  `<sdk>-lite.zip` (lite, falling back to `<sdk>.zip`).
-- `vps-build.sh` uploads per variant, right after each one is built. Retention
-  is applied by `sf-prune.sh <arch> <sdk>` after a successful upload.
+- Only two variants exist: `awe` and `lite`. core, go, micro, nano, user,
+  superlite, pixel and basic were removed; do not add them back.
+- They restore two gapps bases: `<sdk>.zip` (awe) and `<sdk>-lite.zip` (lite,
+  falling back to `<sdk>.zip`).
 - Only arm64 is built. arm (armeabi-v7a), x86 and x86_64 were dropped; do not
   add builds or sources for them back (`arch_supported()` in `build.sh` and
-  `packages/make`). Releases already published for them stay on the FRS.
-- Anything uploaded to `$HOMEE` (`/home/frs/project/litegapps`) is public.
+  `packages/make`).
+- Releases are published to GitHub Releases only, by the workflows under
+  `.github/workflows/`. There is no upload step in `build.sh`.
 
 ## Testing
 
 There is no test suite. Check shell syntax with `sh -n build.sh packages/make`
 and `bash -n *.sh installer/kopi/META-INF/com/google/android/update-binary`,
 then do a real single-target build (`bash build.sh make litegapps lite arm64 36`)
-against restored sources. Never run `upload` / `update-gapps-server` as a test.
+against restored sources. Publishing happens in the GitHub workflows,
+never locally.

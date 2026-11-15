@@ -7,7 +7,7 @@ name: Build & Release AweGapps (lite matrix)
 # sdk has no gapps on the server, that one job just produces no
 # asset (fail-fast: false keeps the rest of the matrix going).
 #
-# The other variants (pixel, basic, awe) are covered by
+# The other variant (awe) is covered by
 # build-release-full.yml.
 #
 # Run manually from the Actions tab, or push a tag like "lite-v1".

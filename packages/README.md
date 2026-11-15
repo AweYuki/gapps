@@ -23,9 +23,7 @@ into root `installer/` or `lib/`.
 - `files/` — gitignored. Per-arch/per-sdk source tree restored from
   `zip-server/`, one dir per app, each with a `build.info` (name/id) driving
   `MAKE`.
-- `zip-server/` — gitignored. Downloaded source zips (or extracted locally by
-  `sf-build.sh` when it already runs on the SourceForge VPS, skipping the
-  download).
+- `zip-server/` — gitignored. Downloaded source zips.
 - `output/`, `tmp/` — gitignored. Build output / scratch dirs (same pattern as
   root `output/`/`tmp/`).
 
@@ -36,19 +34,15 @@ bash packages/make restore [arch] [sdk]    # download+extract source zips
 bash packages/make make [arch] [sdk]       # build addon packages
 bash packages/make clean [arch] [sdk]      # reset files/output/tmp
 bash packages/make check [arch] [sdk]      # check for conflicts
-bash packages/make upload [arch] [sdk]     # scp addon zips to SourceForge
 bash packages/make zip-make                # package zip-server/ into zips
-bash packages/make zip-upload               # upload those zips
 ```
 
 `arch`/`sdk` default to `config`'s `arch=`/`sdk=` when omitted.
 
 ## How the rest of the repo uses this
 
-- `vps-build.sh` calls `bash packages/make restore`/`make`/`upload` per
-  arch/sdk target, before invoking `build.sh make litegapps ...` for each
-  variant — addon packages must exist under `files/` before an AweGapps zip
-  can bundle them.
-- `sf-build.sh` (the legacy SourceForge-VPS script) does the same, but
-  since it already runs on the box that hosts `zip-server/`, it skips the
-  download step and unzips directly.
+- `lib/litegapps.sh`'s `_litegapps_build_addon()` calls
+  `bash packages/make restore`/`make` for the target arch/sdk before the
+  variant is built — addon packages must exist under `files/` before an
+  AweGapps zip can bundle them.
+- Nothing uploads from here: the GitHub workflows publish the finished zips.

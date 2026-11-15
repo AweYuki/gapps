@@ -1,6 +1,6 @@
 ---
 name: build-litegapps
-description: Understand and build the AweGapps project (fork of LiteGapps) — a systemless Google Apps package for Android built via build.sh. Use whenever the user wants to restore/build/clean it, add SDK/Android or arch support, edit variants (lite, pixel, basic, awe), manage gapps packages, tweak the config, or debug the build. Triggers: "build litegapps", "build awegapps", "restore", "make gapps", "add A17/SDK support", "new variant", "auto-build".
+description: Understand and build the AweGapps project (fork of LiteGapps) — a systemless Google Apps package for Android built via build.sh. Use whenever the user wants to restore/build/clean it, add SDK/Android or arch support, edit variants (lite, awe), manage gapps packages, tweak the config, or debug the build. Triggers: "build litegapps", "build awegapps", "restore", "make gapps", "add A17/SDK support", "new variant", "auto-build".
 ---
 
 # Build AweGapps (upstream: LiteGapps)
@@ -35,21 +35,16 @@ when a build fails**, they contain the real error.
 
 | Path | What it is |
 |------|-----------|
-| `build.sh` | Thin CLI + **dispatcher** + shared helpers (`printlog`, `get_config`, `make_zip`, `make_archive`, `make_tar_arch`, `copy_binary_flashable`, `get_android_version`, `clean_variant_dirs`, …). Subcommands `restore`/`make`/`clean`/`upload`/`update-gapps-server` call the product functions in `lib/`. Sources `lib/litegapps.sh` + `lib/litegappsx.sh`. |
+| `build.sh` | Thin CLI + **dispatcher** + shared helpers (`printlog`, `get_config`, `make_zip`, `make_archive`, `make_tar_arch`, `copy_binary_flashable`, `get_android_version`, `clean_variant_dirs`, …). Subcommands `restore`/`make`/`clean` call the product functions in `lib/`; there is no upload step. Sources `lib/litegapps.sh` + `lib/litegappsx.sh`. |
 | `lib/litegapps.sh`, `lib/litegappsx.sh` | Per-product build logic. Each defines `<product>_restore`, `<product>_make`, `<product>_clean` (+ `make_flashable_*`, `_<product>_build_variant`, `<product>_variants`). **Replaced the old `core/*/make.sh` and every per-variant `clean.sh`.** Variant list is derived from the filesystem (dirs containing a `config`), so adding a variant needs no code change. |
 | `installer/` | Flashable-zip installer payload copied into every zip: `kopi/` installer, `customize.sh`, `action.sh`, `module.prop`, `LICENSE`, `27-litegapps.sh`, `litegapps-post-fs`, `litegapps`. Referenced in build code as **`$utils`** (set in `build.sh`). Was `core/utils/`. |
 | `config` | Top-level build config (version, compression, which products/variants to build). See below. |
 | `core/litegapps/restore.sh` | Downloads/extracts the gapps files for each variant during `restore` (sourced by `litegapps_restore`). |
-| `core/litegapps/<variant>/` | One dir per variant (`lite pixel basic awe`). Contains `config`, `restore/<arch>/<sdk>/`, `gapps/<arch>/<sdk>/` (populated by restore), `modules/`, `utils/README.md`. `awe` is this fork's own variant; its app list is the `awe` case in `_litegapps_module_whitelist()` (`lib/litegapps.sh`). |
+| `core/litegapps/<variant>/` | One dir per variant (`lite awe`). Contains `config`, `restore/<arch>/<sdk>/`, `gapps/<arch>/<sdk>/` (populated by restore), `modules/`, `utils/README.md`. `awe` is this fork's own variant; its app list is the `awe` case in `_litegapps_module_whitelist()` (`lib/litegapps.sh`). |
 | `core/litegapps/<variant>/config` | Per-variant config: `sdk`, `arch`, `restore.sdk`, `restore.arch`, `name`, `dir_name`, `modules`, `desc`, plus the gapps-source overrides below. |
 | `core/litegappsx/` | The "litegappsx" product — **`microg` only** now. Enabled in `config` with `litegappsx.build=true`; build it on its own with `bash build.sh make litegappsx microg`. Sources come from `micro5k/microg-unofficial-installer` (Apache-2.0 APKs + CC0-1.0 XMLs only; its GPL-3.0 scripts are not used). Cached downloads live in `core/litegappsx/microg/files/microg/`. |
 | `packages/` | Addon/apk packaging tool (`packages/make`, `packages/config`) — a vendored standalone sub-project called as a black box (`bash packages/make make $ARCH $SDK`), with its own `packages/utils` installer. Produces the raw gapps that get restored. |
 | `files/` | Where `bin.zip` is downloaded to during restore. Gitignored. |
-| `vps-build.sh` | **Unattended full build for a self-hosted VPS** (no time limit). Loops every `ARCH × SDK` from `.env`; per target: download package source from SourceForge → `packages/make make` (build addon) → scp addon to SF → download gapps → build every litegapps variant (via `build.sh make`) → scp zips to SF → **delete all sources/output before the next target** so a low-memory VPS holds only one target at a time. Failures are logged to `vps-build-logs/vps-build-failed.log` and the run continues. Its own consolidated log goes to `vps-build-logs/`, separate from `build.sh`'s `log/` (which appends across runs). Config via `.env` (gitignored: `SF_USER`, `ARCH_LIST`, `SDK_LIST`). Run detached (Docker via `Dockerfile`/`docker-compose.yml`, or `tmux`/`nohup`) so it survives SSH logout. Uploads reuse the proven scp-to-`web.sourceforge.net:/home/frs/project/litegapps/...` pattern. |
-| `Dockerfile` / `docker-compose.yml` / `.dockerignore` | Containerized runner for `vps-build.sh` — clean env with all deps (curl, zip, tar, xz, brotli, unzip, java), SSH keys mounted read-only from the host, runs detached (`docker run -d` / `docker compose up -d`). |
-| `sf-prune.sh` / `sf-common.sh` | Release retention on the FRS: `bash sf-prune.sh <arch> <sdk> [--dry-run]` keeps the newest `SF_KEEP_RELEASES` (15) dated folders per variant. Called by `vps-build.sh` after a successful upload; `sf-common.sh` holds the shared `.env` loading and ssh options. |
-| `sf-build.sh` | Legacy maintainer auto-build script run on the **SourceForge build VPS** (`$HOMEE=/home/frs/project/litegapps`). Interactive menu (arch/sdk prompt → Make Addon / Make LiteGapps / extract / release / **Build All**). Note: the SourceForge VPS enforces a **4-hour job time limit**, so builds must fit within that window — favor `litegapps.tar=single`/`multi` reuse and reasonable compression levels to stay under it. Meant for the release server, not casual local builds. |
-| `sf-build.sh` menu 6 "Build All" | Resumable batch build: loops arm64 (SDK 37→24), running `UNZIP_FILE_SERVER`→`UNZIP_GAPPS`→`MAKE_ADDON`→`MAKE_LITEGAPPS` per combo. Builds `$BUILD_ALL_BATCH` (4) combos then stops (fits the 4-hour limit), recording finished ones in `sf-build-progress.log` (gitignored, lives next to the script). Re-running menu 6 resumes from there; menu 7 shows progress. To force-rebuild one combo regardless of progress, use the normal menu 1+2 with that arch/sdk — Build All's tracking doesn't touch it. Variant selection per arch (matching `MAKE_LITEGAPPS()`): SDK ≤25 → lite only, SDK ≥26 → pixel+basic+awe+lite. |
 | `bin/` | Per-arch host binaries (`arm64`: zip, tar, xz, brotli, toybox) + `zipsigner.jar`. Downloaded by restore, gitignored. |
 
 ## config (top-level) — key fields
@@ -120,10 +115,11 @@ errors if missing). Add it to `litegapps.type`/`litegapps.restore` in the top-le
 `config` to include it in default builds, or build it explicitly:
 `bash build.sh make litegapps <name> <arch> <sdk>`.
 
-**Add/adjust a variant's app list**: variant contents for the maintainer flow
-(`sf-build.sh`'s `PIXEL`/`MICRO`/`NANO`/`BASIC`/`USER`/`GO`/`CORE` whitelists) or
-the `restore/<arch>/<sdk>/{core,gapps,go}` app-name lists control which extra
-apps get pulled from `addon/` on top of the base gapps.
+**Add/adjust a variant's app list**: the whitelist in
+`_litegapps_module_whitelist()` (`lib/litegapps.sh`) controls which extra apps
+are staged from the addon output; `LG_PKGS_<VARIANT>` overrides it per build.
+The `restore/<arch>/<sdk>/{core,gapps,go}` app-name lists only drive the
+prebuilt addon download during `restore`.
 
 **Change compression/level or signing**: edit `config` — no code change needed.
 
@@ -138,9 +134,8 @@ binary in `bin/<arch>`.
 - Match the existing shell style: tab indentation, helper functions defined at
   the top of `build.sh`, `getp`/`get_config`/`read_config` for reading config,
   `printlog`/`sedlog` for logging, `del`/`cdir` instead of raw `rm -rf`/`mkdir -p`.
-- `restore` and `upload`/`update-gapps-server` hit the network (Sourceforge,
-  GitHub). Don't run `upload`/`update-gapps-server` unless the user explicitly
-  asks — they push to the release server and prompt for a Sourceforge username.
+- `restore` hits the network (SourceForge, GitHub); it only downloads. Releases
+  are published by the GitHub workflows, never from `build.sh`.
 - Generated artifacts (`bin/`, `output/`, `*.zip`, `*.tar`, `*.apk`, gapps dirs,
   logs) are gitignored — don't commit them.
 - Only commit or push when the user asks.

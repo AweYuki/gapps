@@ -22,12 +22,12 @@ zip.signer=false
 
 # Litegapps prop
 litegapps.build=true
-# list-restore = lite,pixel,basic,awe
+# list-restore = lite,awe
 litegapps.restore=lite
-# list-type = lite,pixel,basic,awe
+# list-type = lite,awe
 litegapps.type=lite
 # litegapps multi or single files.tar archive
-# This function is used to create a single .tar file and is used for many variants. This speeds up the build process for many variants of pixel, basic, awe, and lite.
+# This function is used to create a single .tar file for many variants, speeding up builds of awe and lite.
 litegapps.tar=single
 
 # Litegappsx prop

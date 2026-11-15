@@ -318,10 +318,10 @@ make_tar_arch(){
 	done
 }
 # xz_threads: how many xz threads this machine can afford, for
-# corecompressing=multi. Builds run on very different hardware (this VPS,
-# GitHub runners, phones in Termux), so it is worked out here rather than
-# left to "-T0": some xz versions (5.4.1, the Docker image's) then cap
-# themselves at 25 % of RAM - 4 of 8 cores on a 24 GB VPS - and others take
+# corecompressing=multi. Builds run on very different hardware (GitHub
+# runners, PCs, phones in Termux), so it is worked out here rather than
+# left to "-T0": some xz versions (5.4.1, one runner image's) then cap
+# themselves at 25 % of RAM - 4 of 8 cores on a 24 GB box - and others take
 # every core however little memory there is. One -9e thread needs ~1250 MiB
 # (xz -vv: 9993 MiB for 8); use at most 80 % of the memory that is actually
 # available, never more threads than cores, never fewer than one. The
@@ -629,52 +629,6 @@ CLEAN(){
 	print "- Cleaning Done"
 }
 
-
-#################################################
-# Upload
-#################################################
-UPLOAD(){
-	printlog " Litegapps Uploading files"
-	printlog " "
-	for W in sftp scp; do
-		if $(command -v $W >/dev/null); then
-		printlog "Executable <$W> <$(command -v $W)> [OK]"
-		else
-		printlog "Executable <$W> [ERROR] not found"
-		exit 1
-		fi
-	done
-	printlog " Total Size file upload : $(du -sh $out)"
-	printlog " Server : Sourceforge"
-	printlog " Username account sourceforge"
-	echo -n " User name = "
-	read USERNAME
-	cd $out
-	find * -type f -name *MAGISK* | while read INPUT_OUT; do
-	SC=$INPUT_OUT
-	TG=/home/frs/project/litegapps/$SC
-	printlog "- Uploading <$SC> to <$TG>"
-	scp $SC $USERNAME@web.sourceforge.net:$TG
-	if [ $? -eq 0 ]; then
-		#del $SC
-		#rmdir $(dirname $SC) 2>/dev/null
-		echo
-	fi
-	done
-	find * -type f -name *RECOVERY* | while read INPUT_OUT; do
-	SC=$INPUT_OUT
-	TG=/home/frs/project/litegapps/$SC
-	printlog "- Uploading <$SC> to <$TG>"
-	scp $SC $USERNAME@web.sourceforge.net:$TG
-	done
-	find * -type f -name *AUTO* | while read INPUT_OUT; do
-	SC=$INPUT_OUT
-	TG=/home/frs/project/litegapps/$SC
-	printlog "- Uploading <$SC> to <$TG>"
-	scp $SC $USERNAME@web.sourceforge.net:$TG
-	done
-	
-}
 #################################################
 # Restore
 #################################################
@@ -785,48 +739,6 @@ MAKE(){
 	del $tmp
 }
 
-UPDATE_GAPPS_SERVER(){
-	printlog "        Update Gapps Server"
-	printlog " "
-	#litegapps
-	local BASE_GAPPS=$base/core/litegapps/lite/gapps
-	for A in $(ls -1 $BASE_GAPPS); do
-		for B in $(ls -1 $BASE_GAPPS/$A); do
-			if [ -d $BASE_GAPPS/$A/$B/system ]; then
-				printlog "- Zipping $BASE_GAPPS/$A/$B/system"
-				cd $BASE_GAPPS/$A/$B
-				del $tmp/files-server/litegapps/$A/$B
-				cdir $tmp/files-server/litegapps/$A/$B
-				zip -r9 $tmp/files-server/litegapps/$A/$B/$B.zip * >/dev/null
-			fi
-		done
-	done
-	printlog "- Upload to server"
-	printlog " "
-	for W in sftp scp; do
-		if $(command -v $W >/dev/null); then
-		printlog "Executable <$W> <$(command -v $W)> [OK]"
-		else
-		printlog "Executable <$W> [ERROR] not found"
-		exit 1
-		fi
-	done
-	printlog " "
-	printlog "- Total Size file upload : $(du -sh $out)"
-	printlog "- Server : Sourceforge"
-	printlog "- Username account sourceforge"
-	echo -n "- User name = "
-	read USERNAME
-	cd $tmp
-	for C in $(find * -name *.zip -type f); do
-		SC=$C
-		TG=/home/frs/project/litegapps/$SC
-		printlog "- Uploading <$SC> to <$TG>"
-		scp $SC $USERNAME@web.sourceforge.net:$TG
-	done
-	printlog " "
-	printlog "- done"
-	}
 case $1 in
 restore | r)
 RESTORE
@@ -837,21 +749,13 @@ MAKE
 clean | c)
 CLEAN
 ;;
-upload | u)
-UPLOAD
-;;
-update-gapps-server)
-UPDATE_GAPPS_SERVER
-;;
 *)
 print "usage : bash build.sh <options>"
 print " "
 print "Options"
 print "restore              restoring files"
-print "make                 build litegapps"
+print "make                 build litegapps and litegappsx"
 print "clean                cleaning all files"
-print "upload               upload files output"
-print "update-gapps-server  update files server gapps"
 print " "
 print " "
 ;;

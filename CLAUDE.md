@@ -9,16 +9,16 @@ Magisk/Kopi module. It is a renamed fork of LiteGapps; see README.md for credits
 **This repo is the build tool** that packages gapps files
 into flashable zips. The build itself is entirely POSIX shell (`sh`/`bash`)
 with no compiler and no test suite. There is no web panel and no service
-component: everything runs from a terminal, `vps-build.sh`, `sf-build.sh` or
-a GitHub workflow.
+component: builds run from a terminal (`build.sh`) or a GitHub workflow that
+also publishes the release.
 
 ## Who builds this, and on what
 
-The build is **not** only run on the maintainer's VPS. Anyone may clone the
-repo and build LiteGapps on their own hardware, and the devices differ a lot:
+The build runs on GitHub Actions and on local machines, and the devices
+differ a lot:
 
-- the maintainer's VPS (8 cores, 24 GB RAM);
 - GitHub Actions runners (4 cores, 16 GB);
+- a maintainer machine (8 cores, 24 GB RAM);
 - ordinary Linux PCs and laptops of any size;
 - **Android phones in Termux, without root** - often 4-8 slow cores that
   throttle when hot, 1-8 GB RAM, and an Android that kills processes which
@@ -76,8 +76,9 @@ Logs: `log/make.log` and `log/make_live.log` — **read these first when a build
 
 - `build.sh` — thin CLI/dispatcher + shared helpers (`get_config`, `make_zip`,
   `make_archive`, `make_tar_arch`, `get_android_version`, `printlog`, `del`, `cdir`,
-  `clean_variant_dirs`). Subcommands `restore`/`make`/`clean`/`upload`/`update-gapps-server`
-  dispatch to the product functions in `lib/`.
+  `clean_variant_dirs`). Subcommands `restore`/`make`/`clean` dispatch to the
+  product functions in `lib/`. It has no upload step: releases are published by
+  the GitHub workflows only.
 - `installer/27-litegapps.sh` — addon.d script that keeps a Kopi (system) install
   across ROM updates. It is run by the ROM's backuptool in recovery
   (`backuptool.sh`, or `backuptool_ab.sh` at postinstall on A/B), once per stage
@@ -113,7 +114,7 @@ Logs: `log/make.log` and `log/make_live.log` — **read these first when a build
   shipped in flashable zips any more.
 - `config` — top-level build config (version, compression, which products/variants).
 - `core/litegapps/<variant>/` — one dir per variant
-  (`lite pixel basic awe`), each with its own `config`,
+  (`lite awe`), each with its own `config`,
   `restore/`, `gapps/`, `modules/`, `utils/README.md`. They do not all restore the
   same gapps zip - see "Variants and where their gapps come from" below, which
   is the rule lite hangs off.
@@ -125,39 +126,6 @@ Logs: `log/make.log` and `log/make_live.log` — **read these first when a build
   `cross_system/` + `cross_sdk/<api>/` shape the installer expects.
 - `packages/` — addon/apk packaging tool (a vendored standalone sub-project; called as a
   black box via `bash packages/make make $ARCH $SDK`, has its own `packages/utils` installer).
-- `sf-build.sh` — legacy maintainer auto-build, runs on the **SourceForge build VPS**
-  (`$HOMEE=/home/frs/project/litegapps`) which has a **4-hour job time limit**;
-  builds must fit that window. Interactive. Not for casual local builds.
-  Menu option 6 ("Build All") batches through every arm64 ×
-  SDK 24-37 (Android 7.0-17) combination, `$BUILD_ALL_BATCH` (4) targets per
-  run, tracked in `sf-build-progress.log` (gitignored) — stop, reboot the
-  VPS job, and re-pick option 6 to resume where it left off.
-  The checkout it runs from lives at `$HOMEE/build/litegapps`. Two different
-  SourceForge hosts serve it, and they are not interchangeable:
-  `ssh -t <user>@shell.sourceforge.net create` gives a real shell (this is the
-  only way to *run* anything there), while `<user>@web.sourceforge.net` is a
-  restricted account that can copy files but never execute a command.
-  To push repo changes up, rsync a `git archive HEAD` export (no `--delete`,
-  or you wipe the downloaded gapps under `bin/`, `core/**/gapps`, `output/`).
-  Two things that trip this up: rsync cannot create or update dot-entries
-  there — `.github/` and `.claude/` fail to mkdir, and the `.gitignore` already
-  sitting there cannot be overwritten — so treat those as unsyncable; and the
-  server keeps its own `config` tuned for releases (xz, compression 9, zip 9,
-  `litegapps.tar=multi`) — leave it alone rather than overwriting it with the
-  local one. `$HOMEE` is the public File Release System: everything placed
-  there is downloadable by anyone, so never copy `.env` or keys into it.
-- `vps-build.sh` — **unattended full build for a self-hosted VPS** (no time limit).
-  Loops all ARCH × SDK, per target: download package source → build+upload addon →
-  download gapps → build+upload every litegapps variant → **delete sources/output
-  before the next target** (low-memory friendly). Config in `.env` (gitignored;
-  `SF_USER` etc.). On failure it logs to `vps-build-logs/vps-build-failed.log` and
-  continues. Its consolidated log lives in `vps-build-logs/`, separate from
-  `build.sh`'s own `log/` (which appends across runs).
-  Run detached so it survives SSH logout — via Docker (`Dockerfile` /
-  `docker-compose.yml`) or `tmux`/`nohup`.
-- `sf-prune.sh` — release retention on the FRS (`bash sf-prune.sh <arch> <sdk>
-  [--dry-run]`), called by `vps-build.sh` after a successful upload.
-  `sf-common.sh` holds the shared `.env`/ssh setup both scripts use.
 - `bin/`, `output/`, `files/`, gapps dirs, `*.zip/*.tar/*.apk`, logs — all gitignored.
   Careful with `.gitignore`: the artifact names there (`log`, `bin`, `output`,
   `tmp`) have no leading slash, so they match at **any** depth. Check
@@ -171,9 +139,8 @@ Logs: `log/make.log` and `log/make_live.log` — **read these first when a build
   log messages, commit messages. This is an English-language project. Some legacy
   Indonesian comments exist in the tree; do not add more, and do not mirror the
   language of the chat into the code (replying to the user in Indonesian is fine).
-- `restore` and `upload`/`update-gapps-server` hit the network (Sourceforge, GitHub).
-  **Do not run `upload`/`update-gapps-server` unless explicitly asked** — they push to
-  the release server and prompt for a Sourceforge username.
+- `restore` hits the network (SourceForge, GitHub). The gapps sources are
+  downloaded, never uploaded; publishing happens in the workflows.
 - Do not commit generated/gitignored artifacts.
 - Only commit or push when the user asks.
 
@@ -185,35 +152,16 @@ file key on the variant.
 
 | Variant | gapps zip restored | Set by |
 |---|---|---|
-| pixel, basic, awe | `<sdk>.zip` | (default) |
+| awe | `<sdk>.zip` | (default) |
 | lite | `<sdk>-lite.zip`, falling back to `<sdk>.zip` when the server has none | `restore.suffix=-lite` |
 
-This fork keeps only those four variants. core, go, micro, nano, user and
-superlite were removed; do not add them back.
+This fork keeps only `lite` and `awe`. core, go, micro, nano, user,
+superlite, pixel and basic were removed; do not add them back.
 
-## Releasing to SourceForge
+## Reading a failed build
 
-`vps-build.sh` uploads **per variant**, right after each one is built, with
-`scp_tree`: every file under the variant's output tree is copied to
-`<FRS>/litegapps/<arch>/<sdk>/<variant>/`, preserving the relative path (the
-`web.sourceforge.net` account cannot run `mkdir`; scp creates the parent
-directories). After a successful upload it runs `sf-prune.sh <arch> <sdk>` to
-apply release retention. Consequences worth knowing:
-
-- Zips appear on the FRS one variant at a time; a run stopped mid-variant
-  uploads nothing for that variant.
-- A failed `scp` marks that variant's upload failed and skips the prune, so no
-  old release is lost over a broken upload; the file is named in the log.
-- `sf-build.sh` writes to the FRS directly on the build VPS and applies the
-  same retention locally (`PRUNE_RELEASES`), since it never calls
-  `sf-prune.sh`.
-
-## Reading a failed run
-
-A `vps-build.sh` run continues past a failure and ends non-zero; every failure
-is listed in `vps-build-logs/vps-build-failed.log` with its target. In
-practice they are almost always the **sources**, not the build code, so read
-the reason before touching anything:
+Failures are almost always the **sources**, not the build code, so read the
+reason in `log/make_live.log` before touching anything:
 
 - `restore gagal` with `! <path> is not on SourceForge either` - that source
   zip exists nowhere. Downloads use `curl -f`, so SourceForge's 404 page
@@ -227,23 +175,8 @@ the reason before touching anything:
   source for that target; only the addon step fails, the zips still build.
 - `source tidak ada` - the gapps were missing and auto-restore was off.
 
-After fixing the source, re-run only that target: `ARCH_LIST` and `SDK_LIST`
-are environment overrides, so `SDK_LIST=36 bash vps-build.sh` redoes that one
-column; nothing in the run needs to be repeated wholesale.
-
-## Release retention on SourceForge
-
-Each variant folder on the FRS (`litegapps/<arch>/<sdk>/<variant>/`) keeps only
-its **newest 15 dated releases** (`YYYY-MM-DD` folders, `SF_KEEP_RELEASES`
-overrides the number); after a release is published the older ones are deleted.
-Both publishing paths apply it: `vps-build.sh` calls
-`sf-prune.sh <arch> <sdk>` after a successful upload (remote, via
-`rsync --list-only` + an sftp `rm`/`rmdir` batch, verified by relisting, and it
-refuses to prune on a failed or empty listing), and `sf-build.sh` runs
-`PRUNE_RELEASES` locally since it writes to the FRS directly. Folders that are
-not ISO dates (old `v3.0` or `20-02-2024` releases) are neither counted nor
-deleted. `bash sf-prune.sh <arch> <sdk> --dry-run` shows what would go.
-`SF_PRUNE` and `SF_KEEP_RELEASES` come from `.env`.
+Re-run one target with `sh build.sh restore litegapps <variant> <arch> <sdk>`
+followed by `bash build.sh make litegapps <variant> <arch> <sdk>`.
 
 ## Compression: smallest output first
 
@@ -254,10 +187,10 @@ output is the same size either way. `multi` does **not** pass `-T0`:
 `xz_threads()` in `build.sh` counts the machine's cores (`nproc`) and
 `MemAvailable`, allows ~1250 MiB per `-9e` thread within 80 % of that, and
 passes the number explicitly (`LG_XZ_THREADS` overrides). Builds run on very
-different hardware, and `-T0` behaves differently per xz version: the Docker
-image's xz 5.4.1 caps itself at 25 % of RAM ("Reduced the number of threads
-from 8 to 4" on the 24 GB VPS), the host's 5.4.5 takes every core however
-little memory is free. Examples: 24 GB VPS -> 8, 6 GB free -> 3, 1-3 GB -> 1.
+different hardware, and `-T0` behaves differently per xz version: xz 5.4.1
+caps itself at 25 % of RAM ("Reduced the number of threads from 8 to 4" on a
+24 GB box), 5.4.5 takes every core however little memory is free. Examples:
+24 GB -> 8, 6 GB free -> 3, 1-3 GB -> 1.
 More threads only help a `files.tar` with more blocks than threads (see
 below), so on typical gapps sizes the real gain comes from building several
 targets at once, not from xz alone. The repo `config`
@@ -284,7 +217,7 @@ A multi-block `.xz` is plain standard xz: the `xz` in `bin.zip` (XZ Utils
 5.2.4, what devices decompress with) and busybox `unxz` (XZ Embedded) both
 read it byte-identical. `BIN_TEST` prefers the host's own `xz` and only falls
 back to `bin/<arch>/xz`, which is an Android binary and hangs on the VPS - so
-the host must have xz installed (the Docker image does). `zip -9` on an
+the host must have xz installed (the GitHub runners do). `zip -9` on an
 already-xz'd file costs ~3 s and is not worth parallelising.
 
 ## Shared files.tar (litegapps.tar=multi)
@@ -302,24 +235,20 @@ as `src-<zip>`. Variants that ended up on the same zip share one archive -
 identical files, identical output - and anything with a zip of its own gets
 its own key:
 
-- pixel, basic and awe all restore `<sdk>.zip`, so they share one archive and
-  xz runs once per target for all three;
+- awe restores `<sdk>.zip`;
 - lite falls back to `<sdk>.zip` when the server has no `<sdk>-lite.zip`
   (arm64 24-28 and 34) and then shares that same archive; a real
   `<sdk>-lite.zip` gets a key of its own;
 - sources restored before the marker existed use the old key from the
   variant config (`sdk`, `sdk-lite`).
 
-`vps-build.sh` logs a timestamp on every step, so further speed-ups can be
-measured from `vps-build-logs/vps-build.log`.
-
 ## Supported targets
 
 Android 7.0 (SDK 24) is the **oldest** target; Android 5.0, 5.1
 and 6.0 (SDK 21-23) were dropped. The floor is `MIN_SDK` in `build.sh`
 (checked by `target_supported()`, copied into `packages/make`).
-`vps-build.sh` and the full GitHub workflow start at 24 too. On 2026-09-27
-everything for 21-23 was deleted from the FRS
+Both GitHub workflows start at 24 too. On 2026-09-27
+everything for 21-23 was deleted from the download server
 (`litegapps/`, `addon/`, `files-server/litegapps/`; `files-server/package`
 never had them). The device-side
 `get_android_version()` copies in `installer/` and `packages/utils/` keep the
@@ -329,17 +258,15 @@ is flashed.
 Only arm64 is built any more. Every other target was dropped at every SDK:
 arm (armeabi-v7a), x86 (32-bit) and x86_64. No source is restored and no zip
 is made for them. The rule lives in `arch_supported()` / `target_supported()`
-in `build.sh` (copied into the standalone `packages/make`, and applied in
-`sf-build.sh`, `vps-build.sh` and both GitHub workflows). Do not add
-builds or sources back for any of them. Their published releases stay on the
-FRS, and still install.
+in `build.sh` (copied into the standalone `packages/make`, and applied in both
+GitHub workflows). Do not add builds or sources back for any of them. Their
+published releases still install.
 
-All four remaining variants build for every supported arm64 SDK.
+Both remaining variants build for every supported arm64 SDK.
 `variant_supported()` in `build.sh` is the hook a future variant would use to
 restrict itself; it is checked by both the make and the restore loop in
-`lib/litegapps.sh`. Variant selection for unattended builds lives in
-`variants_for()` (`vps-build.sh`) and `MAKE_LITEGAPPS()` (`sf-build.sh`):
-everything above SDK 25, lite alone below that (the addon source starts at 26).
+`lib/litegapps.sh`. The workflows build awe (which needs the addon) only from
+SDK 26 up, where the addon source exists; lite needs no addon at all.
 
 ## Adding Android/SDK support
 
@@ -357,9 +284,7 @@ rclone remote (`LG_GDRIVE_REMOTE`, default `gdrive`) and a folder
 back on any failure. The panel scripts that used to keep that mirror in sync
 are gone; sync it with rclone by hand.
 
-- Offered, not done: `sf.mirror=phoenixnap` in `config` (measured 18 MB/s vs
-  9 MB/s default) - the user decides.
-- Unproven: the per-gapps-base `files.tar` cache key - build lite and basic for
+- Unproven: the per-gapps-base `files.tar` cache key - build lite and awe for
   one target with `litegapps.tar=multi` and marker files, then compare the
   two zips' `files.tar.xz`, on a free tree.
 - **Bug (reported 2026-10-27, open): Setup Wizard stops after a ROM update.**

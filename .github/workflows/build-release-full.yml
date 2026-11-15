@@ -1,14 +1,15 @@
 name: Build & Release AweGapps (All Variants)
 
-# Builds every listed litegapps variant (default: pixel, basic, awe, lite)
+# Builds every listed litegapps variant (default: awe, lite)
 # for one arch/sdk target and publishes the zips to GitHub Releases.
 #
-# Variants here have modules=true (pixel/basic/awe) and need the
+# Variants here have modules=true (awe) and need the
 # packages/ addon tool. That is handled automatically now: lib/litegapps.sh's
 # _litegapps_build_addon()/_litegapps_prep_modules() build packages/make and
 # stage the result into core/litegapps/<variant>/modules/ on demand, so this
-# workflow only needs to call build.sh restore/make like any other variant -
-# no SourceForge credentials, no vps-build.sh.
+# workflow only needs to call build.sh restore/make like any other variant.
+# No credentials or build host of its own: everything publishes to GitHub
+# Releases.
 #
 # To build your own version: fork, adjust the variant list/arch/sdk inputs
 # below (Actions tab -> "Build & Release AweGapps (All Variants)" -> Run
@@ -20,7 +21,7 @@ on:
       variants:
         description: "Comma-separated litegapps variants to build, in order"
         required: false
-        default: "pixel,basic,awe,lite"
+        default: "awe,lite"
       arch:
         description: "Architecture to build (arm64 only)"
         required: false
@@ -61,7 +62,7 @@ jobs:
         id: vars
         run: |
           VARIANTS="${{ inputs.variants }}"
-          [ -z "$VARIANTS" ] && VARIANTS="pixel,basic,awe,lite"
+          [ -z "$VARIANTS" ] && VARIANTS="awe,lite"
 
           ARCH="${{ inputs.arch }}"
           [ -z "$ARCH" ] && ARCH="arm64"

@@ -35,16 +35,9 @@ tmp_files
 bin
 log
 
-# vps-build.sh
+# local secrets, if any are ever added
 .env
-vps-build-logs
 
-# sf-build.sh Build All progress state
-sf-build-progress.log
-
-# Docker SSH credentials (never commit private keys)
-docker/ssh/*
-!docker/ssh/README.md
 packages/files
 packages/output
 packages/zip-server
