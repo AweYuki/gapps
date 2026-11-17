@@ -1,0 +1,258 @@
+name: Build & Release AweGapps (awe + microG, SDK range)
+
+# Builds the `awe` litegapps variant for a list of SDKs (default 33-37) and
+# the `microg` litegappsx product once, then publishes everything to a single
+# GitHub Release.
+#
+# One matrix job per SDK, so the targets build in parallel instead of
+# queueing on one runner. microG does not depend on the SDK (its sources are
+# the same APKs for every Android version), so it is a separate job; building
+# it once avoids five identical zips with the same file name.
+#
+# No credentials and no build host of its own: everything publishes to
+# GitHub Releases with the workflow token.
+
+on:
+  workflow_dispatch:
+    inputs:
+      sdks:
+        description: "Comma-separated SDK/API levels to build, e.g. 33,34,35,36,37"
+        required: false
+        default: "33,34,35,36,37"
+      variants:
+        description: "Comma-separated litegapps variants to build for each SDK"
+        required: false
+        default: "awe"
+      microg:
+        description: "Also build the litegappsx (microG) product"
+        type: boolean
+        required: false
+        default: true
+      arch:
+        description: "Architecture to build (arm64 only)"
+        required: false
+        default: "arm64"
+      tag:
+        description: "Release tag (created if missing). Leave empty to auto-generate."
+        required: false
+        default: ""
+      prerelease:
+        description: "Mark the release as a pre-release"
+        type: boolean
+        required: false
+        default: true
+  push:
+    tags:
+      - "awe-v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-release-awe-sdks-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      sdks: ${{ steps.vars.outputs.sdks }}
+      arch: ${{ steps.vars.outputs.arch }}
+      variants: ${{ steps.vars.outputs.variants }}
+      tag: ${{ steps.vars.outputs.tag }}
+      prerelease: ${{ steps.vars.outputs.prerelease }}
+    steps:
+      - name: Resolve SDK list, variants, tag
+        id: vars
+        run: |
+          SDKS="${{ inputs.sdks }}"
+          [ -z "$SDKS" ] && SDKS="33,34,35,36,37"
+
+          ARCH="${{ inputs.arch }}"
+          [ -z "$ARCH" ] && ARCH="arm64"
+          case "$ARCH" in
+            arm64) ;;
+            *)
+              echo "::error::$ARCH is not built any more; choose arm64"
+              exit 1
+              ;;
+          esac
+
+          VARIANTS="${{ inputs.variants }}"
+          [ -z "$VARIANTS" ] && VARIANTS="awe"
+
+          # validate every SDK before the matrix is built from the list
+          LIST=""
+          for S in $(echo "$SDKS" | tr ',' ' '); do
+            case "$S" in
+              ''|*[!0-9]*) echo "::error::SDK <$S> is not a number"; exit 1 ;;
+            esac
+            if [ "$S" -lt 24 ]; then
+              echo "::error::SDK $S is below the oldest supported target (Android 7.0 / SDK 24)"
+              exit 1
+            fi
+            LIST="$LIST,$S"
+          done
+          LIST=$(echo "$LIST" | sed 's/^,//')
+          [ -z "$LIST" ] && { echo "::error::no SDK given"; exit 1; }
+
+          TAG="${{ inputs.tag }}"
+          if [ -z "$TAG" ]; then
+            if [ "${{ github.ref_type }}" = "tag" ]; then
+              TAG="${{ github.ref_name }}"
+            else
+              TAG="awe-build-$(date +%Y%m%d)-${{ github.run_number }}"
+            fi
+          fi
+
+          PRERELEASE="${{ inputs.prerelease }}"
+          if [ -z "$PRERELEASE" ]; then
+            if [ "${{ github.ref_type }}" = "tag" ]; then PRERELEASE=false; else PRERELEASE=true; fi
+          fi
+
+          echo "sdks=[$LIST]" >> "$GITHUB_OUTPUT"
+          echo "arch=$ARCH" >> "$GITHUB_OUTPUT"
+          echo "variants=$VARIANTS" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$PRERELEASE" >> "$GITHUB_OUTPUT"
+          echo "SDKs: $LIST | variants: $VARIANTS | tag: $TAG"
+
+  build:
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        sdk: ${{ fromJSON(needs.prepare.outputs.sdks) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Point every requested variant at arch/sdk
+        run: |
+          ARCH="${{ needs.prepare.outputs.arch }}"
+          SDK="${{ matrix.sdk }}"
+          VARIANTS="${{ needs.prepare.outputs.variants }}"
+          for V in $(echo "$VARIANTS" | tr ',' ' '); do
+            CFG="core/litegapps/$V/config"
+            if [ -f "$CFG" ]; then
+              sed -i "s/^arch=.*/arch=$ARCH/" "$CFG"
+              sed -i "s/^sdk=.*/sdk=$SDK/" "$CFG"
+              sed -i "s/^restore.arch=.*/restore.arch=$ARCH/" "$CFG"
+              sed -i "s/^restore.sdk=.*/restore.sdk=$SDK/" "$CFG"
+              echo "-- $CFG --"; grep -E "^(arch|sdk|restore\.(arch|sdk))=" "$CFG"
+            else
+              echo "! variant <$V> not found under core/litegapps/, skipping"
+            fi
+          done
+
+      - name: Restore + build, one variant at a time
+        run: |
+          set -e
+          ARCH="${{ needs.prepare.outputs.arch }}"
+          SDK="${{ matrix.sdk }}"
+          VARIANTS="${{ needs.prepare.outputs.variants }}"
+          for V in $(echo "$VARIANTS" | tr ',' ' '); do
+            echo "::group::$V arm64/$SDK"
+            # explicit args: restore only this variant (and bin.zip), never the
+            # whole litegapps.restore list, and no litegappsx run
+            sh build.sh restore litegapps "$V" "$ARCH" "$SDK"
+            bash build.sh make litegapps "$V" "$ARCH" "$SDK"
+            # keep packages/output (reused by the next variant at this sdk),
+            # drop this variant's own sources and the scratch dirs
+            rm -rf "core/litegapps/$V/gapps/$ARCH/$SDK"
+            rm -rf "core/litegapps/$V/modules/$ARCH/$SDK"
+            rm -rf "core/litegapps/$V/files/$ARCH/$SDK"
+            rm -rf tmp tmp_files
+            df -h .
+            echo "::endgroup::"
+          done
+          rm -rf "packages/files/$ARCH/$SDK" "packages/zip-server/$ARCH/$SDK.zip" packages/output
+
+      - name: Collect zips
+        run: |
+          mkdir -p dist
+          find output -name "*.zip" -exec cp {} dist/ \;
+          ls -la dist/
+          test -n "$(ls -A dist)" || { echo "::error::no zip was produced for SDK ${{ matrix.sdk }}"; exit 1; }
+          cd dist && sha256sum ./*.zip > SHA256SUMS-sdk${{ matrix.sdk }}.txt
+
+      - name: Upload zips
+        uses: actions/upload-artifact@v4
+        with:
+          name: awe-sdk-${{ matrix.sdk }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 2
+
+  microg:
+    needs: prepare
+    # tag pushes have no inputs, so default to building microG there
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.microg }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Restore + build microG
+        run: |
+          set -e
+          sh build.sh restore litegappsx
+          bash build.sh make litegappsx microg
+
+      - name: Collect zip
+        run: |
+          mkdir -p dist
+          find output -name "*.zip" -exec cp {} dist/ \;
+          ls -la dist/
+          test -n "$(ls -A dist)" || { echo "::error::the microG build produced no zip"; exit 1; }
+          cd dist && sha256sum ./*.zip > SHA256SUMS-microg.txt
+
+      - name: Upload zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: microg
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 2
+
+  release:
+    # prepare is a direct dependency so its outputs are available here
+    needs: [prepare, build, microg]
+    if: ${{ always() && needs.build.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download every artifact
+        uses: actions/download-artifact@v4
+        with:
+          path: collected
+          merge-multiple: true
+
+      - name: Prepare release assets
+        run: |
+          cd collected
+          ls -la
+          test -n "$(ls -A *.zip)" || { echo "::error::no zip was collected"; exit 1; }
+          cat SHA256SUMS-*.txt > SHA256SUMS.txt
+          rm -f SHA256SUMS-sdk*.txt SHA256SUMS-microg.txt
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ needs.prepare.outputs.tag }}"
+          NOTES="Automated AweGapps build - arch: ${{ needs.prepare.outputs.arch }}, SDKs: ${{ needs.prepare.outputs.sdks }}, variants: ${{ needs.prepare.outputs.variants }}, microG: ${{ needs.microg.result }}"
+          PRERELEASE_FLAG=""
+          [ "${{ needs.prepare.outputs.prerelease }}" = "true" ] && PRERELEASE_FLAG="--prerelease"
+          cd collected
+          if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            gh release upload "$TAG" ./*.zip SHA256SUMS.txt --clobber --repo "${{ github.repository }}"
+          else
+            gh release create "$TAG" ./*.zip SHA256SUMS.txt \
+              --title "$TAG" \
+              --notes "$NOTES" \
+              $PRERELEASE_FLAG \
+              --repo "${{ github.repository }}"
+          fi
